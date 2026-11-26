@@ -42,6 +42,39 @@ export function requirePositiveNumber(value: unknown, path: string, fallback: nu
   return value;
 }
 
+export function requireNonEmptyString(value: unknown, path: string): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new NumvizError(`\`${path}\` must be a non-empty string.`, {
+      code: "INVALID_CONFIG",
+      path,
+      details: { received: value }
+    });
+  }
+  return value;
+}
+
+export function requireBoolean(value: unknown, path: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new NumvizError(`\`${path}\` must be a boolean.`, {
+      code: "INVALID_CONFIG",
+      path,
+      details: { received: value }
+    });
+  }
+  return value;
+}
+
+export function requireCallback(value: unknown, path: string): (...args: never[]) => unknown {
+  if (typeof value !== "function") {
+    throw new NumvizError(`\`${path}\` must be a function.`, {
+      code: "INVALID_CONFIG",
+      path,
+      details: { received: typeof value }
+    });
+  }
+  return value as (...args: never[]) => unknown;
+}
+
 export function resolveWidth(config: ChartConfig): number {
   return requirePositiveNumber(config.width, "width", DEFAULT_WIDTH);
 }
@@ -116,11 +149,38 @@ export function resolveThemeConfig(input: ChartConfig["theme"]): ThemeConfig {
   }
   if (
     theme.borderRadius !== undefined &&
-    (typeof theme.borderRadius !== "number" || theme.borderRadius < 0)
+    (typeof theme.borderRadius !== "number" ||
+      !Number.isFinite(theme.borderRadius) ||
+      theme.borderRadius < 0)
   ) {
-    throw new NumvizError("`theme.borderRadius` must be a non-negative number.", {
+    throw new NumvizError("`theme.borderRadius` must be a non-negative finite number.", {
       code: "INVALID_CONFIG",
-      path: "theme.borderRadius"
+      path: "theme.borderRadius",
+      details: { received: theme.borderRadius }
+    });
+  }
+  for (const field of [
+    "accent",
+    "fontFamily",
+    "background",
+    "surface",
+    "text",
+    "mutedText",
+    "border",
+    "grid"
+  ] as const) {
+    const value = theme[field];
+    if (value !== undefined) requireNonEmptyString(value, `theme.${field}`);
+  }
+  if (theme.chartPalette !== undefined) {
+    if (!Array.isArray(theme.chartPalette) || theme.chartPalette.length === 0) {
+      throw new NumvizError("`theme.chartPalette` must be a non-empty array of colours.", {
+        code: "INVALID_CONFIG",
+        path: "theme.chartPalette"
+      });
+    }
+    theme.chartPalette.forEach((color, index) => {
+      requireNonEmptyString(color, `theme.chartPalette[${index}]`);
     });
   }
   return { ...theme };
@@ -146,11 +206,14 @@ export function resolveLegend(
     });
   }
   const legend = config.legend as LegendConfig;
+  if (legend.show !== undefined) requireBoolean(legend.show, "legend.show");
+  if (legend.interactive !== undefined) requireBoolean(legend.interactive, "legend.interactive");
   const position = legend.position ?? defaultPosition;
   if (!LEGEND_POSITIONS.includes(position)) {
     throw new NumvizError(`\`legend.position\` must be one of: ${LEGEND_POSITIONS.join(", ")}.`, {
       code: "INVALID_CONFIG",
-      path: "legend.position"
+      path: "legend.position",
+      details: { received: position }
     });
   }
   return { show: legend.show ?? true, position, interactive: legend.interactive ?? true };
@@ -166,11 +229,14 @@ export function resolveLabels(config: ChartConfig): ResolvedChartConfig["labels"
     });
   }
   const labels = config.labels as LabelConfig;
+  if (labels.show !== undefined) requireBoolean(labels.show, "labels.show");
+  if (labels.formatter !== undefined) requireCallback(labels.formatter, "labels.formatter");
   const position = labels.position ?? "auto";
   if (!LABEL_POSITIONS.includes(position)) {
     throw new NumvizError(`\`labels.position\` must be one of: ${LABEL_POSITIONS.join(", ")}.`, {
       code: "INVALID_CONFIG",
-      path: "labels.position"
+      path: "labels.position",
+      details: { received: position }
     });
   }
   const show = labels.show ?? true;
@@ -187,6 +253,8 @@ export function resolveTooltip(config: ChartConfig): ResolvedChartConfig["toolti
     });
   }
   const tooltip = config.tooltip as TooltipConfig;
+  if (tooltip.show !== undefined) requireBoolean(tooltip.show, "tooltip.show");
+  if (tooltip.formatter !== undefined) requireCallback(tooltip.formatter, "tooltip.formatter");
   const show = tooltip.show ?? true;
   return tooltip.formatter ? { show, formatter: tooltip.formatter } : { show };
 }
@@ -224,18 +292,8 @@ export function resolveAxis(
       path: `${path}.rotate`
     });
   }
-  if (axis.title !== undefined && typeof axis.title !== "string") {
-    throw new NumvizError(`\`${path}.title\` must be a string.`, {
-      code: "INVALID_CONFIG",
-      path: `${path}.title`
-    });
-  }
-  if (axis.tickFormat !== undefined && typeof axis.tickFormat !== "function") {
-    throw new NumvizError(`\`${path}.tickFormat\` must be a function.`, {
-      code: "INVALID_CONFIG",
-      path: `${path}.tickFormat`
-    });
-  }
+  if (axis.title !== undefined) requireNonEmptyString(axis.title, `${path}.title`);
+  if (axis.tickFormat !== undefined) requireCallback(axis.tickFormat, `${path}.tickFormat`);
   for (const bound of ["min", "max"] as const) {
     const value = axis[bound];
     if (value !== undefined && (typeof value !== "number" || !Number.isFinite(value))) {
@@ -272,15 +330,17 @@ export function resolveAnimation(input: ChartConfig["animation"]): ResolvedChart
     });
   }
   const animation = input as AnimationConfig;
+  if (animation.enabled !== undefined) requireBoolean(animation.enabled, "animation.enabled");
   if (
     animation.duration !== undefined &&
     (typeof animation.duration !== "number" ||
       !Number.isFinite(animation.duration) ||
       animation.duration < 0)
   ) {
-    throw new NumvizError("`animation.duration` must be a non-negative number.", {
+    throw new NumvizError("`animation.duration` must be a non-negative finite number.", {
       code: "INVALID_CONFIG",
-      path: "animation.duration"
+      path: "animation.duration",
+      details: { received: animation.duration }
     });
   }
   return { enabled: animation.enabled ?? true, duration: animation.duration ?? 240 };

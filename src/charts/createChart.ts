@@ -2,7 +2,13 @@ import { NumvizError } from "../errors.js";
 import { renderChartContent } from "../renderers/svg/chart.js";
 import type { RenderContext } from "../renderers/context.js";
 import { resolveTheme } from "../theme/tokens.js";
-import { applyThemeTokens, ensureBaseStyles, getDocument, resolveContainer } from "../utils/dom.js";
+import {
+  applyThemeTokens,
+  ensureBaseStyles,
+  getDocument,
+  getWindow,
+  resolveContainer
+} from "../utils/dom.js";
 import type {
   Chart,
   ChartConfig,
@@ -15,12 +21,15 @@ import { resolveChart } from "./config.js";
 const MIN_WIDTH = 240;
 const RESIZE_EPSILON = 4;
 
+type ChartWindow = Window & typeof globalThis;
+
 class NumvizChart implements Chart {
   readonly config: ResolvedChartConfig;
   readonly data: NormalizedDataset;
 
   #root: HTMLElement | null = null;
   #container: Element | null = null;
+  #view: ChartWindow | undefined;
   #destroyed = false;
   #cleanups: Array<() => void> = [];
   #hidden = new Set<number>();
@@ -64,12 +73,13 @@ class NumvizChart implements Chart {
       });
     }
 
-    const container = resolveContainer(target);
-    const doc = getDocument();
+    const container = this.#resolveTarget(target);
+    const doc = container.ownerDocument ?? getDocument();
     ensureBaseStyles(doc);
     this.#clearRendered();
 
     this.#container = container;
+    this.#view = getWindow(doc);
     const tokens = this.#tokens();
     const root = doc.createElement("div");
     root.className = `numviz-root numviz-chart numviz-chart--${this.config.type}`;
@@ -91,16 +101,24 @@ class NumvizChart implements Chart {
     this.#destroyed = true;
   }
 
+  #resolveTarget(target: string | Element): Element {
+    if (typeof target === "string") {
+      const doc = getDocument();
+      return resolveContainer(target, doc);
+    }
+    return resolveContainer(target);
+  }
+
   #tokens(): ThemeTokens {
-    const tokens = resolveTheme(this.config.theme);
+    const tokens = resolveTheme(this.config.theme, this.#view);
     return this.config.background ? { ...tokens, background: this.config.background } : tokens;
   }
 
   #widthForLayout(): number {
     if (this.#explicitWidth) return this.config.width;
-    const container = this.#container;
+    const container = this.#container as (Element & { clientWidth?: number }) | null;
     const measured =
-      container instanceof HTMLElement ? container.clientWidth : 0;
+      container && typeof container.clientWidth === "number" ? container.clientWidth : 0;
     return measured > 0 ? Math.max(MIN_WIDTH, Math.round(measured)) : this.config.width;
   }
 
@@ -113,7 +131,8 @@ class NumvizChart implements Chart {
 
     const width = this.#widthForLayout();
     this.#renderedWidth = width;
-    const config: ResolvedChartConfig = width === this.config.width ? this.config : { ...this.config, width };
+    const config: ResolvedChartConfig =
+      width === this.config.width ? this.config : { ...this.config, width };
 
     const context: RenderContext = {
       doc: root.ownerDocument,
@@ -136,24 +155,33 @@ class NumvizChart implements Chart {
   }
 
   #observe(container: Element): void {
-    const Observer = globalThis.ResizeObserver;
-    if (!this.config.responsive || this.#explicitWidth || typeof Observer !== "function") return;
+    if (!this.config.responsive || this.#explicitWidth) return;
+    const view = this.#view;
+    const Observer =
+      (view as (ChartWindow & { ResizeObserver?: typeof ResizeObserver }) | undefined)
+        ?.ResizeObserver ?? globalThis.ResizeObserver;
+    if (typeof Observer !== "function") return;
+
     this.#observer = new Observer(() => {
       if (!this.#root) return;
       const width = this.#widthForLayout();
       if (Math.abs(width - this.#renderedWidth) < RESIZE_EPSILON) return;
       if (this.#frame) return;
+      const requestFrame = view?.requestAnimationFrame?.bind(view);
+      const cancelFrame = view?.cancelAnimationFrame?.bind(view);
       const schedule =
-        typeof globalThis.requestAnimationFrame === "function"
-          ? globalThis.requestAnimationFrame
-          : (callback: FrameRequestCallback) => setTimeout(() => callback(0), 16);
+        requestFrame ??
+        ((callback: FrameRequestCallback) => setTimeout(() => callback(0), 16));
       this.#frame = schedule(() => {
         this.#frame = 0;
         this.#draw();
       }) as unknown as number;
+      this.#cancelFrame = cancelFrame;
     });
     this.#observer.observe(container);
   }
+
+  #cancelFrame: ((handle: number) => void) | undefined;
 
   #clearRendered(): void {
     for (const cleanup of this.#cleanups) cleanup();
@@ -161,16 +189,19 @@ class NumvizChart implements Chart {
     this.#observer?.disconnect();
     this.#observer = null;
     if (this.#frame) {
-      if (typeof globalThis.cancelAnimationFrame === "function") {
+      if (this.#cancelFrame) this.#cancelFrame(this.#frame);
+      else if (typeof globalThis.cancelAnimationFrame === "function") {
         globalThis.cancelAnimationFrame(this.#frame);
       } else {
         clearTimeout(this.#frame);
       }
       this.#frame = 0;
     }
+    this.#cancelFrame = undefined;
     this.#root?.remove();
     this.#root = null;
     this.#container = null;
+    this.#view = undefined;
   }
 }
 
@@ -178,7 +209,8 @@ class NumvizChart implements Chart {
  * Create a chart instance.
  *
  * The returned chart validates and normalizes its configuration immediately and
- * renders when {@link Chart.render} is called.
+ * renders when {@link Chart.render} is called. Rendering uses the target
+ * element's owning document and window, so charts work inside iframes.
  */
 export function createChart(config: ChartConfig): Chart {
   return new NumvizChart(config);

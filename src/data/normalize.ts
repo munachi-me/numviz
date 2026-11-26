@@ -155,7 +155,14 @@ function extractRecords(
             row: index
           });
         }
+        if (row.length > keys.length) {
+          throw invalidData(
+            `Row ${index} has ${row.length} values but only ${keys.length} columns are defined. Extra values would be discarded; provide a column definition for every value.`,
+            { row: index, expected: keys.length, received: row.length }
+          );
+        }
         const values: Record<string, unknown> = {};
+        // Missing cells (short rows) become null during conversion.
         keys.forEach((key, columnIndex) => {
           values[key] = (row as DataMatrixRow)[columnIndex];
         });
@@ -164,7 +171,9 @@ function extractRecords(
       return { records, definitions, keys };
     }
 
-    const keys: string[] = [];
+    // Declared columns keep their order and are preserved even when no record
+    // contains them. Record keys that were not declared are appended.
+    const keys: string[] = definitions.map((definition) => definition.key);
     const records = rows.map((row, index) => {
       if (!isRecord(row)) {
         throw invalidData(`Row ${index} must be an object or an array.`, { row: index });
@@ -176,8 +185,11 @@ function extractRecords(
       }
       return { source: row, values };
     });
-    const definitionsWithDefaults = definitions.length > 0 ? definitions : keys.map((key) => ({ key }));
-    return { records, definitions: definitionsWithDefaults, keys };
+    const declared = new Set(definitions.map((definition) => definition.key));
+    const discovered = keys
+      .filter((key) => !declared.has(key))
+      .map((key) => ({ key }));
+    return { records, definitions: [...definitions, ...discovered], keys };
   }
 
   if (isDatasetLike(input)) {

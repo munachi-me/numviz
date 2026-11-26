@@ -10,6 +10,8 @@ import type {
 } from "../types.js";
 import {
   isPlainObject,
+  requireBoolean,
+  requireNonEmptyString,
   resolveAnimation,
   resolveAxis,
   resolveBins,
@@ -96,11 +98,11 @@ function resolveSeries(context: SeriesContext): ResolvedSeries[] {
         );
       }
     }
-    if (definition.color !== undefined && typeof definition.color !== "string") {
-      throw new NumvizError("Series colours must be CSS colour strings.", {
-        code: "INVALID_CONFIG",
-        path: `series[${index}].color`
-      });
+    if (definition.label !== undefined) {
+      requireNonEmptyString(definition.label, `series[${index}].label`);
+    }
+    if (definition.color !== undefined) {
+      requireNonEmptyString(definition.color, `series[${index}].color`);
     }
     return {
       index,
@@ -165,6 +167,23 @@ export function resolveChart(config: ChartConfig): ResolvedChart {
       "A value field is required. Provide `y` (or `value`) with the name of the numeric column.",
       { code: "INVALID_CONFIG", path: "y" }
     );
+  }
+
+  if (config.responsive !== undefined) requireBoolean(config.responsive, "responsive");
+  if (config.series !== undefined) {
+    if (!Array.isArray(config.series)) {
+      throw new NumvizError("`series` must be an array of series definitions.", {
+        code: "INVALID_CONFIG",
+        path: "series",
+        details: { received: typeof config.series }
+      });
+    }
+    if (config.series.length === 0) {
+      throw new NumvizError("`series` must contain at least one series definition.", {
+        code: "INVALID_CONFIG",
+        path: "series"
+      });
+    }
   }
 
   const theme = resolveThemeConfig(config.theme);

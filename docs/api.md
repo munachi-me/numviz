@@ -1,4 +1,4 @@
-# Numviz API reference — 0.2.0
+# Numviz API reference — 0.2.1
 
 ## Entry points
 
@@ -125,6 +125,15 @@ all non-missing values: numeric majority (at least two thirds) → `number`;
 all ISO date-like values → `date`; all booleans or `"true"`/`"false"` →
 `boolean`; otherwise `string`.
 
+Declared columns are preserved even when records omit them: they keep their
+declared order, appear in the normalized dataset, and their values are `null`.
+Record keys that were not declared are appended after the declared columns.
+
+For array-of-arrays input, rows may be shorter than the column list and the
+missing cells become `null`. Rows longer than the column list raise
+`INVALID_DATA` with `details: { row, expected, received }` so extra values are
+never discarded silently.
+
 Normalization never mutates input. Each normalized row keeps a `source`
 reference to the original record.
 
@@ -200,10 +209,35 @@ Codes: `INVALID_CONFIG`, `INVALID_TYPE`, `INVALID_DATA`, `INVALID_CONTAINER`,
 `CONTAINER_NOT_FOUND`, `NO_DOM`, `DESTROYED`. Use `isNumvizError(error)` for
 narrowing.
 
+## Configuration validation
+
+Configuration errors throw `NumvizError` with `code: "INVALID_CONFIG"` and the
+offending `path`. Validated values include:
+
+- `theme` string tokens (`accent`, `fontFamily`, `background`, `surface`,
+  `text`, `mutedText`, `border`, `grid`), `theme.chartPalette` entries and
+  `theme.borderRadius`.
+- `series` must be a non-empty array of objects with non-empty `field`,
+  optional non-empty `label` and `color`, and unique fields.
+- `legend.show`, `legend.interactive`, `legend.position`.
+- `labels.show`, `labels.position`, `labels.formatter`.
+- `tooltip.show`, `tooltip.formatter`.
+- `animation.enabled`, `animation.duration`.
+- `responsive`, `width`, `height`, `bins`, `onClick`.
+- `xAxis`/`yAxis` `show`, `grid`, `rotate`, `title`, `tickFormat`, `min`, `max`.
+
+Data shape errors throw `code: "INVALID_DATA"` (including ragged
+array-of-arrays rows and non-numeric value columns).
+
 ## Rendering model
 
 - Charts are SVG with a `viewBox`; width follows the container unless `width`
   is set, and a `ResizeObserver` re-renders responsive charts on resize.
+- Rendering uses the target element's `ownerDocument` and `defaultView`:
+  styles, SVG nodes, `ResizeObserver`, `requestAnimationFrame` and system theme
+  detection all come from the owning document/window. This makes iframe
+  rendering first-class. String selectors resolve against the global document;
+  pass an element for targets in another document.
 - Titles, axes, legends, labels, grid lines and marks are part of the chart
   output. Tooltips are HTML elements positioned over the chart root.
 - Marks are focusable and expose `aria-label` values.

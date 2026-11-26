@@ -4,8 +4,9 @@ Framework-independent JavaScript visualization and dashboard platform. Numviz
 renders charts from ordinary JavaScript data — no React, Next.js, Numiq, or CSS
 framework required.
 
-**Current release:** `0.2.0` — advanced charts, multi-series data, axis
-control, legend interactions and responsive layout.
+**Current release:** `0.2.1` — audit fixes and stabilization on top of the 0.2.0
+advanced charts, multi-series data, axis control, legend interactions and
+responsive layout.
 
 Published on npm as **`@munachi-me/numviz`**.
 
@@ -174,6 +175,16 @@ createChart({ type: "bar", data: dataset, x: "region", y: "orders" });
 - Mixed columns are converted to strings.
 - Duplicate or missing column keys raise a `NumvizError`.
 
+Declared columns are always preserved. When `columns` is supplied for object or
+dataset records, those columns keep their declared order and appear in the
+normalized dataset even if no record contains them; their cells are `null`.
+Record keys that were not declared are appended after the declared columns.
+
+For array-of-arrays data, each row may be shorter than the column list: missing
+cells become `null`. A row that is longer than the column list raises
+`INVALID_DATA` (`details: { row, expected, received }`) instead of silently
+discarding the extra values.
+
 Invalid values do not crash rendering; they are skipped. When no values remain,
 the chart renders an empty state.
 
@@ -260,6 +271,23 @@ When `width` is omitted and `responsive` is true (the default), Numviz measures
 the render container, uses that width, and re-renders when the container
 resizes. Set an explicit `width` to opt out of measured layout.
 
+## Iframes and multiple documents
+
+Rendering uses the target element's own document and window. Charts render into
+iframes, use the iframe's `ResizeObserver` and `requestAnimationFrame`, and
+evaluate `theme.mode: "system"` with the iframe window's
+`prefers-color-scheme`. Structural styles are injected into the target
+document, not the parent page.
+
+```ts
+const frame = document.querySelector("iframe");
+const chart = createChart({ type: "bar", data, x: "month", y: "revenue" });
+chart.render(frame.contentDocument.querySelector("#chart"));
+```
+
+String selectors resolve against the global document. Pass an element when the
+target lives in another document.
+
 ## Theming
 
 The default theme is neutral and readable, with a restrained indigo accent.
@@ -342,10 +370,12 @@ npx serve .
 npm run typecheck   # strict TypeScript
 npm run lint        # ESLint
 npm test            # Vitest in jsdom
-npm run build       # ESM output + declarations in dist/
+npm run build       # cross-platform clean (scripts/clean.mjs) + tsc
 npm run verify      # typecheck, lint, tests, build, consumer import test
 ```
 
+The build removes `dist/` with `scripts/clean.mjs`, which uses Node's filesystem
+API instead of Unix-only shell commands, so it runs on Windows, macOS and Linux.
 The consumer test packs the package, installs it into a temporary project and
 verifies default imports, named imports, namespace imports, runtime behaviour
 and declaration resolution under the published package name.
