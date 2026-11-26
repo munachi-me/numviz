@@ -1,15 +1,15 @@
-# Numviz API reference — 0.3.1
+# Numviz API reference — 0.4.0
 
 ## Entry points
 
 ```ts
 import Numviz from "@munachi-me/numviz";              // default namespace
-import { createChart, createTable } from "@munachi-me/numviz";
-import { DataTable } from "@munachi-me/numviz/react"; // optional React entry
+import { createChart, createTable, createMetric } from "@munachi-me/numviz";
+import { DataTable, Metric } from "@munachi-me/numviz/react"; // optional React entry
 ```
 
 The default namespace is frozen and contains `createChart`, `createTable`,
-`version` and `NumvizError`. The React subpath is a separate optional entry and
+`createMetric`, `version` and `NumvizError`. The React subpath is a separate optional entry and
 is the only module that imports React.
 
 Type exports include `Chart`, `ChartConfig`, `ChartType`, `ChartClickEvent`,
@@ -23,8 +23,14 @@ Type exports include `Chart`, `ChartConfig`, `ChartType`, `ChartClickEvent`,
 `NumvizErrorOptions`, `Table`, `TableConfig`, `TableColumnConfig`, `TableRow`,
 `TableAlign`, `TableVariant`, `TableFormatPreset`, `TableFormatter`,
 `TableCellRenderer`, `TableCellContext`, `TableSortState`,
-`TableSortDirection`, `TableState`, `TableData`, `ResolvedTableConfig` and
-`ResolvedTableColumn`.
+`TableSortDirection`, `TableState`, `TableData`, `ResolvedTableConfig`,
+`ResolvedTableColumn`, `Metric`, `MetricConfig`, `MetricResult`,
+`MetricAggregation`, `MetricAggregationAlias`, `MetricAggregationName`, `MetricAggregator`,
+`MetricComparisonConfig`, `MetricComparisonResult`, `MetricContext`,
+`MetricDirection`, `MetricFilter`, `MetricRowFilter`, `MetricRowContext`,
+`MetricFormat`, `MetricFormatPreset`, `MetricFormatContext`,
+`MetricFormatter`, `MetricIcon`, `MetricState`, `MetricTrend` and
+`MetricVariant`.
 
 ## `createChart(config): Chart`
 
@@ -194,12 +200,139 @@ disabled every filtered and sorted row is rendered and `getState().pageCount`
 is `1`. Sorting, filtering and selection operate on the normalized row list, so
 pagination never creates a DOM row per record.
 
+## `createMetric(config): Metric`
+
+Computes a value immediately, without a DOM. `result` is a plain object, so
+metrics can be used for calculations, exports or server-side summaries even when
+they are never rendered.
+
+```ts
+import { createMetric } from "@munachi-me/numviz";
+
+const revenue = createMetric({
+  name: "Total Revenue",
+  data,
+  column: "revenue",
+  aggregation: "sum",
+  format: "currency",
+  comparison: { data: previous, column: "revenue" }
+});
+
+revenue.result.value; // 1000
+revenue.result.comparison?.percentageChange; // 25
+revenue.render("#revenue");
+```
+
+### MetricConfig
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `name` | required | Metric name and accessible card label |
+| `title` | `name` | Visible card title |
+| `data` | required | Records, matrix with `columns`, or dataset input |
+| `columns` | inferred | Column definitions for matrix or dataset input |
+| `column` | — | Field to aggregate; required by numeric and distinct aggregations |
+| `aggregation` | `"sum"` | Built-in name or custom function |
+| `filter` | — | Callback or exact-match object applied before aggregation |
+| `description` | — | Supporting text under the value |
+| `format` | aggregation default | `number`, `currency`, `percent`, `compact` or a function |
+| `formatOptions` | — | `Intl.NumberFormat` options |
+| `locale` | `"en-US"` | Number and date locale |
+| `currency` | `"USD"` | Currency for the currency preset and comparison |
+| `prefix` / `suffix` | — | Text rendered around the value |
+| `comparison` | — | Previous dataset or fixed previous value |
+| `trend` | `"auto"` | `auto`, `up`, `down`, `flat` or `false` |
+| `positiveDirection` | `"up"` | Which direction counts as positive; use `"down"` for churn, cost or error rates |
+| `icon` | — | Text glyph/emoji or a DOM node |
+| `color` | — | Accent used by the value and highlight variant (`--nv-metric-accent`) |
+| `variant` | `"default"` | `default`, `compact`, `bordered`, `highlight` |
+| `theme` | `{}` | Same theme tokens as charts and tables |
+| `className` | — | Extra class on the card root |
+| `loading` | `false` | Loading appearance |
+| `error` | `null` | Error message shown with `role="alert"` |
+| `emptyMessage` | `"No data"` | Value replacement when the metric is empty |
+| `ariaLabel` | `title` | Accessible card label |
+
+### Aggregations
+
+| Name | Result |
+| --- | --- |
+| `sum` | Total of finite numeric values |
+| `average` | Mean of finite numeric values (`avg`, `mean` aliases) |
+| `count` | Number of rows after filtering |
+| `distinct-count` | Number of distinct non-null column values (`distinct` alias) |
+| `minimum` / `maximum` | Smallest/largest numeric value (`min`, `max` aliases) |
+| `median` | Median of numeric values |
+| `percentage` | Filtered rows ÷ all rows, as a fraction; formatted as a percent by default |
+| custom function | Receives `{ rows, values, column, totalRowCount, matchedRowCount, dataset }` |
+
+Missing and invalid numeric values are excluded from numeric aggregations and
+reported through `validCount` and `missingCount`. Empty numeric aggregations
+return `null`; empty counts return `0`; an empty percentage returns `null`.
+
+### Metric result
+
+| Field | Description |
+| --- | --- |
+| `name`, `title` | Configured name and title |
+| `value` | Raw number or `null` |
+| `formattedValue` | Formatted string, empty when `value` is `null` |
+| `description`, `prefix`, `suffix` | Display text |
+| `aggregation` | Canonical aggregation name (`custom` for functions) |
+| `column`, `locale`, `currency` | Resolved configuration |
+| `rowCount` | Total normalized rows |
+| `matchedRowCount` | Rows after the filter |
+| `validCount` / `missingCount` | Valid numeric values and ignored/missing values |
+| `comparison` | Comparison result or `null` |
+| `direction` | `up`, `down`, `flat` or `null` |
+| `trend` | Effective trend after `trend` and comparison resolution |
+| `state` | `positive`, `negative` or `neutral` |
+| `metadata` | Aggregation, counts, filter kind and comparison details |
+
+### Comparisons
+
+```ts
+createMetric({
+  name: "Revenue",
+  data,
+  column: "revenue",
+  comparison: {
+    data: previous,           // or value: 400000
+    column: "revenue",
+    aggregation: "sum",
+    label: "vs last month"
+  }
+});
+```
+
+`MetricComparisonResult` exposes `source` (`"data"` or `"value"`), `value`,
+`formattedValue`, `difference`, `formattedDifference`, `percentageChange`, `growth`, `direction`,
+`label` and comparison row counts. `percentageChange` is expressed in percentage
+points and `growth` is a ratio. Both are `null` when the comparison value is `0`
+or missing; `direction` is `null` when either side is `null`.
+
+### Metric methods
+
+| Method | Description |
+| --- | --- |
+| `render(target)` | Renders the KPI card into a selector or element |
+| `update(config)` | Re-resolves configuration, recomputes and re-renders |
+| `setData(data)` | Replaces data and recomputes |
+| `setLoading(bool)` | Toggles the loading appearance |
+| `setError(string \| null)` | Shows or clears an error |
+| `refresh()` | Recomputes against current data |
+| `destroy()` | Removes the card and marks the metric destroyed |
+
+`result`, `config`, `element` and `isDestroyed` are readable properties. String
+values and formatter results are inserted as text, never HTML.
+
 ## React entry point
 
-`@munachi-me/numviz/react` exports `DataTable` and the `DataTableProps` and
-`DataTableHandle` types. React is an optional peer dependency (`>=18`) and the
-core entry never imports it. See [frameworks.md](./frameworks.md) for Next.js
-guidance.
+`@munachi-me/numviz/react` exports `DataTable`, `Metric` and the
+`DataTableProps`, `DataTableHandle`, `MetricProps` and `MetricHandle` types.
+React is an optional peer dependency (`>=18`) and the core entry never imports
+it. Both components render only a host element during server rendering. See
+[frameworks.md](./frameworks.md) for Next.js guidance.
 
 ## Axes
 

@@ -1,13 +1,12 @@
 # Numviz
 
 Framework-independent JavaScript visualization and dashboard platform. Numviz
-renders charts and HTML data tables from ordinary JavaScript data — no React,
-Next.js, Numiq, or CSS framework required. React is optional and available from a
-separate subpath.
+renders charts, HTML data tables and KPI metric cards from ordinary JavaScript
+data — no React, Next.js, Numiq, or CSS framework required. React is optional and
+available from a separate subpath.
 
-**Current release:** `0.3.1` — table pagination fixes, package synchronization
-and theme flexibility on top of the 0.3.0 HTML table engine and the 0.2.x chart
-foundation.
+**Current release:** `0.4.0` — the metrics and KPI engine, on top of the 0.3.x
+table engine, stabilization work and the 0.2.x chart foundation.
 
 Published on npm as **`@munachi-me/numviz`**.
 
@@ -142,11 +141,65 @@ search.
 
 See [docs/api.md](./docs/api.md#tables) for the complete table API.
 
+## Metrics and KPI cards
+
+`createMetric` computes values without rendering, then renders the same result as
+a KPI card. The metric result is a plain JavaScript object.
+
+```ts
+import { createMetric } from "@munachi-me/numviz";
+
+const revenue = createMetric({
+  name: "Total Revenue",
+  data,
+  column: "revenue",
+  aggregation: "sum",
+  format: "currency",
+  comparison: {
+    data: previousPeriod,
+    column: "revenue",
+    aggregation: "sum",
+    label: "vs previous period"
+  }
+});
+
+revenue.result.value; // 482000
+revenue.result.formattedValue; // "$482,000.00"
+revenue.result.comparison?.percentageChange; // 12.4
+revenue.result.state; // "positive"
+
+revenue.render("#revenue");
+```
+
+- **Aggregations**: `sum`, `average`, `count`, `distinct-count`, `minimum`,
+  `maximum`, `median`, `percentage` and custom functions. `avg`, `mean`, `min`,
+  `max` and `distinct` are accepted aliases.
+- **Filtering**: filter with a callback (`row.values.region === "North"`) or an
+  object (`{ region: "North" }`). Missing and invalid values are ignored by
+  numeric aggregations and reported in `validCount` / `missingCount`.
+- **Percentage**: the share of filtered rows in the full dataset, returned as a
+  fraction (`0.4`) and formatted as `40%` by default.
+- **Comparisons**: compare against another dataset or a fixed value. Results
+  expose `difference`, `percentageChange`, `growth`, `direction` and the
+  formatted comparison. Division by zero yields `null` rather than Infinity.
+- **KPI rendering**: title, value, description, prefix/suffix, currency and
+  percentage formats, trend arrows, comparison values, semantic positive/negative
+  states, text or DOM icons, custom colours and `default`, `compact`, `bordered`
+  and `highlight` variants. `positiveDirection: "down"` supports lower-is-better
+  metrics.
+- **Lifecycle**: `setData`, `setLoading`, `setError`, `refresh`, `update` and
+  `destroy`, with loading, empty and error appearances.
+- **Accessibility**: `role="group"`, a card label, `aria-busy` while loading,
+  `role="alert"` for errors and a polite live value.
+
+See [docs/api.md](./docs/api.md#createmetricconfig-metric) for the complete
+metric and comparison API.
+
 ## React and Next.js
 
 React support is optional and lives at `@munachi-me/numviz/react`. Install React
-alongside Numviz, then use the typed `DataTable` component. The core package
-never imports React.
+alongside Numviz, then use the typed `DataTable` and `Metric` components. The
+core package never imports React.
 
 ```tsx
 import { DataTable } from "@munachi-me/numviz/react";
@@ -158,8 +211,23 @@ export function Employees() {
 
 `sort`, `page`, `search` and `selectedRows` can be supplied for controlled
 state, with the matching `onSortChange`, `onPageChange`, `onSearchChange` and
-`onSelectionChange` callbacks. See [docs/frameworks.md](./docs/frameworks.md)
-for Next.js client boundaries, server rendering and controlled examples.
+`onSelectionChange` callbacks.
+
+```tsx
+import { Metric } from "@munachi-me/numviz/react";
+
+<Metric
+  name="Total Revenue"
+  data={rows}
+  column="revenue"
+  aggregation="sum"
+  format="currency"
+  comparison={{ value: 400000 }}
+/>;
+```
+
+See [docs/frameworks.md](./docs/frameworks.md) for Next.js client boundaries,
+server rendering, controlled tables and metric examples.
 
 ## Multi-series data
 
@@ -419,8 +487,17 @@ semantic state colours) and documented class names:
 - `.numviz-table__row`, `.numviz-table__row--selected`, `.numviz-table__selection`
 - `.numviz-table__empty`, `.numviz-table__loading`, `.numviz-table__error`
 - `.numviz-table__footer`, `.numviz-table__pagination`, `.numviz-table__status`
+- `.numviz-metric`, `.numviz-metric--default`, `.numviz-metric--compact`,
+  `.numviz-metric--bordered`, `.numviz-metric--highlight`
+- `.numviz-metric__header`, `.numviz-metric__icon`, `.numviz-metric__title`,
+  `.numviz-metric__value-row`, `.numviz-metric__value`
+- `.numviz-metric__prefix`, `.numviz-metric__suffix`, `.numviz-metric__empty`
+- `.numviz-metric__description`, `.numviz-metric__comparison`,
+  `.numviz-metric__trend`, `.numviz-metric__change`
+- `.numviz-metric__error`
 
-Tables use the same `--nv-*` custom properties as charts.
+Tables and metrics use the same `--nv-*` custom properties as charts. Metrics
+also honour `--nv-metric-accent` when a card sets `color`.
 
 Marks accept `data-numviz-part`, `data-index` and `data-series` attributes for
 custom tooling and tests.
@@ -433,7 +510,10 @@ show the same tooltip on keyboard focus. Legend items expose `aria-pressed`.
 
 Tables use native table semantics with a visually hidden caption, `scope="col"`
 headers, `aria-sort` state, `aria-selected` rows, `aria-busy` while loading,
-labelled search/page controls and a polite live status region. Motion respects
+labelled search/page controls and a polite live status region.
+
+Metric cards expose `role="group"` with an accessible label, `aria-busy` while
+loading, a polite live value and `role="alert"` error messages. Motion respects
 `prefers-reduced-motion` and can be disabled.
 
 ## Errors
@@ -452,9 +532,9 @@ Errors are `NumvizError` instances with a `code` and optional `path`.
 
 ## Examples
 
-The `examples/` folder contains framework-free HTML pages for every chart type
-and for the table engine (`table.html`, `table-themes.html`), plus data format
-examples:
+The `examples/` folder contains framework-free HTML pages for every chart type,
+the table engine (`table.html`, `table-themes.html`) and KPI metrics
+(`metrics.html`), plus data format examples:
 
 ```bash
 npm install
@@ -481,9 +561,9 @@ and declaration resolution under the published package name.
 
 ## Release history
 
-See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: `0.3.x`
-adds tables and stabilization; metrics, dashboards, framework adapters, the
-complete theme engine, standalone export and reporting arrive before `1.0.0`.
+See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: `0.4.x`
+adds metrics and KPI cards; dashboards, framework adapters, the complete theme
+engine, standalone export and reporting arrive before `1.0.0`.
 
 ## License
 

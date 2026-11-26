@@ -49,6 +49,50 @@ export function Employees() {
 host `<div data-numviz-react="table">` and creates the table engine inside an
 effect, so the table markup is managed outside React's reconciliation.
 
+## Metric
+
+```tsx
+import { Metric } from "@munachi-me/numviz/react";
+
+export function RevenueCard({ rows, previous }: { rows: Record<string, unknown>[]; previous: Record<string, unknown>[] }) {
+  return (
+    <Metric
+      name="Total Revenue"
+      data={rows}
+      column="revenue"
+      aggregation="sum"
+      format="currency"
+      description="This month"
+      icon="★"
+      color="#22C55E"
+      variant="highlight"
+      comparison={{ data: previous, column: "revenue", aggregation: "sum" }}
+    />
+  );
+}
+```
+
+`Metric` accepts every `MetricConfig` option except that `icon` is a text glyph
+or emoji string in React, and `style` is typed as `CSSProperties`. Use a plain
+DOM node for richer icons in vanilla usage. The component renders a host
+`<div data-numviz-react="metric">` and creates the card in an effect; props are
+re-resolved on every render so data and comparison values stay current. Access
+the underlying engine and computed result through a ref:
+
+```tsx
+import { useRef } from "react";
+import { Metric, type MetricHandle } from "@munachi-me/numviz/react";
+
+const ref = useRef<MetricHandle>(null);
+// ...
+<Metric ref={ref} name="Revenue" data={rows} column="revenue" />;
+// ref.current?.getMetric()?.result.value;
+```
+
+The loading, empty and error appearances use `loading`, `emptyMessage` and
+`error` props. Metric values are computed during the effect, not during render,
+so server rendering only emits the host element.
+
 ## Controlled state
 
 Omit controlled props for uncontrolled behaviour. Provide them for controlled
@@ -112,9 +156,9 @@ const ref = useRef<DataTableHandle>(null);
 ## Next.js
 
 The React entry starts with `"use client"`, so it can be imported from a client
-component directly. The table is created in `useEffect`, which means importing
-the component is safe during server rendering: the server output is the host
-element only.
+component directly. Tables and metric cards are created in `useEffect`, which
+means importing the components is safe during server rendering: the server
+output is the host element only.
 
 ### App Router
 
@@ -154,16 +198,18 @@ const DataTable = dynamic(
 
 ### Server-side rendering notes
 
-- `DataTable` renders only its host element on the server; no `document` or
-  `window` access happens during render.
-- Sorting, searching, pagination and selection work after hydration.
+- `DataTable` and `Metric` render only their host elements on the server; no
+  `document` or `window` access happens during render.
+- Sorting, searching, pagination and selection work after hydration; metric
+  values are computed and rendered after mounting.
 - Pagination renders one page at a time, which keeps large datasets out of the
   DOM in both server and client environments.
-- The vanilla `createTable` engine can be tested in jsdom without React.
+- The vanilla `createTable` and `createMetric` engines can be tested in jsdom or
+  used for server-side metric calculations without React.
 
 ## Styling parity
 
-The same `theme`, `variant`, `striped`, `className` and token options apply to
-vanilla and React tables, because both use one engine and one stylesheet. Theme
-custom properties are set on the table root, so overrides do not leak into other
-components.
+The same `theme`, `variant`, `className` and token options apply to vanilla and
+React tables and metrics, because both use one engine and one stylesheet. Theme
+custom properties are set on each component root, so overrides do not leak into
+other components.
