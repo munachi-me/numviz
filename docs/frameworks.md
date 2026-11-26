@@ -13,6 +13,75 @@ npm install @munachi-me/numviz react
 `react` (>=18) is an optional peer dependency. Importing the core entry never
 loads React and never requires it to be installed.
 
+## Dashboard
+
+`Dashboard` accepts every `DashboardConfig` option plus React `style` and
+renders a host `<div data-numviz-react="dashboard">`. The dashboard and its
+child chart, table and metric engines are created in an effect, so server
+rendering emits only the host element.
+
+```tsx
+import { Dashboard } from "@munachi-me/numviz/react";
+
+export function SalesDashboard({ revenue, monthly, employees }: {
+  revenue: Record<string, unknown>[];
+  monthly: Record<string, unknown>[];
+  employees: Record<string, unknown>[];
+}) {
+  return (
+    <Dashboard
+      title="Sales Analytics"
+      description="Business performance overview"
+      format={{ locale: "en-US", currency: "USD" }}
+      layout={{ columns: { base: 1, sm: 2, lg: 4 }, gap: 16 }}
+      components={[
+        {
+          id: "revenue",
+          type: "metric",
+          name: "Total Revenue",
+          data: revenue,
+          column: "revenue",
+          aggregation: "sum",
+          format: "currency"
+        },
+        {
+          id: "sales",
+          type: "chart",
+          chartType: "bar",
+          data: monthly,
+          x: "month",
+          y: "revenue",
+          layout: { columnSpan: 2 }
+        },
+        {
+          id: "records",
+          type: "table",
+          data: employees,
+          layout: { columnSpan: 2 }
+        }
+      ]}
+    />
+  );
+}
+```
+
+Dashboard props are reconciled on every render. Matching widget ids and types
+keep their table or metric engine; charts are recreated. Access the underlying
+engine through a ref:
+
+```tsx
+import { useRef } from "react";
+import { Dashboard, type DashboardHandle } from "@munachi-me/numviz/react";
+
+const ref = useRef<DashboardHandle>(null);
+// ...
+<Dashboard ref={ref} {...config} />;
+// ref.current?.getDashboard()?.getWidget("revenue");
+```
+
+`DataTable` and `Metric` remain independently usable. Mix them in any React
+layout without mounting the full dashboard wrapper.
+
 ## DataTable
 
 ```tsx
@@ -156,9 +225,9 @@ const ref = useRef<DataTableHandle>(null);
 ## Next.js
 
 The React entry starts with `"use client"`, so it can be imported from a client
-component directly. Tables and metric cards are created in `useEffect`, which
-means importing the components is safe during server rendering: the server
-output is the host element only.
+component directly. Dashboards, tables and metric cards are created in
+`useEffect`, which means importing the components is safe during server
+rendering: the server output is the host element only.
 
 ### App Router
 
@@ -176,8 +245,9 @@ Rules of thumb:
 
 - Keep data fetching on the server and pass plain, serializable records to the
   client component.
-- Do not call `createTable` or read `window`/`document` during render or at
-  module scope; the component already defers DOM work to an effect.
+- Do not call `createDashboard`, `createTable`, `createMetric` or read
+  `window`/`document` during render or at module scope; the components already
+  defer DOM work to an effect.
 - `render` callbacks receive row objects on the client. Define them in the
   client component, not in a server-only module.
 - If your page is fully server-rendered and you prefer no client bundle, use the

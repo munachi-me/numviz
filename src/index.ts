@@ -1,4 +1,5 @@
 import { createChart } from "./charts/createChart.js";
+import { createDashboard } from "./dashboard/dashboard.js";
 import { isNumvizError, NumvizError } from "./errors.js";
 import { createMetric } from "./metric/metric.js";
 import { createTable } from "./table/table.js";
@@ -13,11 +14,12 @@ const Numviz: NumvizNamespace = Object.freeze({
   createChart,
   createTable,
   createMetric,
+  createDashboard,
   version: VERSION,
   NumvizError
 });
 
-export { createChart, createTable, createMetric };
+export { createChart, createTable, createMetric, createDashboard };
 export { NumvizError, isNumvizError };
 export { VERSION as version };
 export default Numviz;
@@ -76,6 +78,42 @@ export type {
   TableState,
   TableVariant
 } from "./table/types.js";
+export type {
+  Dashboard,
+  DashboardAlignment,
+  DashboardBreakpoint,
+  DashboardBreakpoints,
+  DashboardChartComponent,
+  DashboardColumns,
+  DashboardComponent,
+  DashboardComponentLayout,
+  DashboardConfig,
+  DashboardCustomComponent,
+  DashboardCustomRenderContext,
+  DashboardDescriptionComponent,
+  DashboardDividerComponent,
+  DashboardFooterConfig,
+  DashboardFormatConfig,
+  DashboardHeaderConfig,
+  DashboardHeadingComponent,
+  DashboardHeadingLevel,
+  DashboardImageComponent,
+  DashboardImageFit,
+  DashboardLayout,
+  DashboardMetricComponent,
+  DashboardTableComponent,
+  DashboardTextComponent,
+  DashboardVariant,
+  DashboardWidget,
+  DashboardWidgetBase,
+  DashboardWidgetShadow,
+  DashboardWidgetStyle,
+  ResolvedDashboardConfig,
+  ResolvedDashboardFooter,
+  ResolvedDashboardFormat,
+  ResolvedDashboardHeader,
+  ResolvedDashboardLayout
+} from "./dashboard/types.js";
 export type {
   Metric,
   MetricAggregation,
