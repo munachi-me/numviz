@@ -4,7 +4,16 @@
  * default, named and namespace imports at runtime and in TypeScript.
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync
+} from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
@@ -17,6 +26,16 @@ function run(command, args, options = {}) {
     stdio: "pipe",
     ...options
   });
+}
+
+function filesUnder(directory) {
+  const files = [];
+  for (const entry of readdirSync(directory)) {
+    const full = path.join(directory, entry);
+    if (statSync(full).isDirectory()) files.push(...filesUnder(full));
+    else files.push(full);
+  }
+  return files;
 }
 
 rmSync(fixture, { recursive: true, force: true });
@@ -62,6 +81,11 @@ if (named.createChart !== Numviz.createChart) throw new Error("namespace import 
 if (named.default !== Numviz) throw new Error("namespace default export differs");
 if (Numviz.version !== version) throw new Error("default and named version differ");
 if (typeof version !== "string" || version.length === 0) throw new Error("version is missing");
+if (Numviz.NumvizError !== NumvizError) throw new Error("default namespace NumvizError differs");
+if (!Object.isFrozen(Numviz)) throw new Error("default namespace is not frozen");
+if (Object.keys(Numviz).sort().join(",") !== "NumvizError,createChart,createMetric,createTable,version") {
+  throw new Error("default namespace is missing public members");
+}
 
 let validationError;
 try {
@@ -117,6 +141,10 @@ if (!readFileSync(reactEntry, "utf8").trimStart().startsWith('"use client"')) {
   throw new Error("React entry is missing the use client directive");
 }
 if (!manifest.peerDependencies || !manifest.peerDependencies.react) throw new Error("react should be an optional peer dependency");
+if (manifest.dependencies && Object.keys(manifest.dependencies).length > 0) {
+  throw new Error("core package must not have runtime dependencies");
+}
+if (manifest.version !== version) throw new Error("runtime version differs from package metadata");
 
 const metric = createMetric({
   name: "Revenue",
@@ -149,6 +177,75 @@ console.log(JSON.stringify({ version, checked: ["default", "named", "namespace",
   );
   const runtimeOutput = run(process.execPath, ["runtime-check.mjs"], { cwd: fixture }).trim();
   console.log(`runtime imports: ${runtimeOutput}`);
+
+  const distDirectory = path.join(fixture, "node_modules", packageName, "dist");
+  const coreFiles = filesUnder(distDirectory).filter(
+    (file) => file.endsWith(".js") && !file.includes(`${path.sep}react${path.sep}`)
+  );
+  if (coreFiles.length === 0) throw new Error("core build output is missing");
+  for (const file of coreFiles) {
+    const source = readFileSync(file, "utf8");
+    if (/(?:from|require\()\s*["']react(?:\/[^"']*)?["']/.test(source)) {
+      throw new Error(`core build imports React: ${path.relative(fixture, file)}`);
+    }
+  }
+  if (existsSync(path.join(fixture, "node_modules", "react"))) {
+    throw new Error("core consumer fixture unexpectedly has React installed");
+  }
+
+  const fixtureManifestPath = path.join(fixture, "package.json");
+  const fixtureManifest = JSON.parse(readFileSync(fixtureManifestPath, "utf8"));
+  fixtureManifest.dependencies.react = "^18.3.1";
+  fixtureManifest.dependencies["react-dom"] = "^18.3.1";
+  fixtureManifest.devDependencies = {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1"
+  };
+  writeFileSync(fixtureManifestPath, JSON.stringify(fixtureManifest, null, 2));
+  run("npm", ["install", "--no-audit", "--no-fund", "--silent"], { cwd: fixture });
+
+  writeFileSync(
+    path.join(fixture, "react-check.mjs"),
+    `import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { DataTable, Metric } from "${packageName}/react";
+
+const data = [
+  { region: "North", revenue: 100, salary: 120000 },
+  { region: "South", revenue: 200, salary: 145000 }
+];
+
+const tableHtml = renderToStaticMarkup(
+  createElement(DataTable, { data, pagination: false })
+);
+if (!tableHtml.includes('data-numviz-react="table"')) {
+  throw new Error("React DataTable SSR host is missing");
+}
+if (tableHtml.includes("<table")) {
+  throw new Error("React DataTable touched the DOM during server rendering");
+}
+
+const metricHtml = renderToStaticMarkup(
+  createElement(Metric, {
+    name: "Revenue",
+    data,
+    column: "revenue",
+    aggregation: "sum",
+    format: "currency",
+    comparison: { value: 200 }
+  })
+);
+if (!metricHtml.includes('data-numviz-react="metric"')) {
+  throw new Error("React Metric SSR host is missing");
+}
+if (metricHtml.includes("$300.00")) {
+  throw new Error("React Metric computed values during server rendering");
+}
+
+console.log(JSON.stringify({ entry: "react", ssr: true, exports: ["DataTable", "Metric"] }));`
+  );
+  const reactOutput = run(process.execPath, ["react-check.mjs"], { cwd: fixture }).trim();
+  console.log(`react imports: ${reactOutput}`);
 
   writeFileSync(
     path.join(fixture, "consumer.ts"),
@@ -204,6 +301,58 @@ console.log(error.code, Numviz.version);
 `
   );
   writeFileSync(
+    path.join(fixture, "react-consumer.tsx"),
+    `import {
+  DataTable,
+  Metric,
+  type DataTableHandle,
+  type DataTableProps,
+  type MetricHandle,
+  type MetricProps
+} from "${packageName}/react";
+import type { MetricResult, TableState } from "${packageName}";
+
+const tableProps: DataTableProps = {
+  data: [{ name: "Ada", salary: 120000 }],
+  columns: [{ field: "name" }, { field: "salary", format: "currency" }],
+  pagination: true,
+  searchable: true
+};
+const table = (
+  <DataTable
+    {...tableProps}
+    sort={{ field: "salary", direction: "desc" }}
+    page={1}
+    search="ada"
+    selectedRows={[0]}
+  />
+);
+
+const metricProps: MetricProps = {
+  name: "Revenue",
+  data: [{ revenue: 120 }],
+  column: "revenue",
+  aggregation: "sum",
+  format: "currency",
+  icon: "$"
+};
+const metric = <Metric {...metricProps} comparison={{ value: 100 }} variant="highlight" />;
+
+function readHandles(
+  tableHandle: DataTableHandle | null,
+  metricHandle: MetricHandle | null
+): { state: TableState | undefined; result: MetricResult | undefined } {
+  return {
+    state: tableHandle?.getTable()?.getState(),
+    result: metricHandle?.getMetric()?.result
+  };
+}
+void table;
+void metric;
+void readHandles;
+`
+  );
+  writeFileSync(
     path.join(fixture, "tsconfig.json"),
     JSON.stringify(
       {
@@ -212,11 +361,12 @@ console.log(error.code, Numviz.version);
           target: "ES2022",
           module: "NodeNext",
           moduleResolution: "NodeNext",
+          jsx: "react-jsx",
           lib: ["ES2022", "DOM", "DOM.Iterable"],
           noEmit: true,
           skipLibCheck: false
         },
-        include: ["consumer.ts"]
+        include: ["consumer.ts", "react-consumer.tsx"]
       },
       null,
       2
@@ -224,7 +374,7 @@ console.log(error.code, Numviz.version);
   );
   const tsc = path.join(root, "node_modules", "typescript", "bin", "tsc");
   run(process.execPath, [tsc, "-p", path.join(fixture, "tsconfig.json")], { cwd: fixture });
-  console.log("consumer typecheck: declarations resolve for both import styles");
+  console.log("consumer typecheck: chart, table, metric and React declarations resolve");
 } finally {
   try {
     unlinkSync(tarball);

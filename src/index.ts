@@ -2,13 +2,14 @@ import { createChart } from "./charts/createChart.js";
 import { isNumvizError, NumvizError } from "./errors.js";
 import { createMetric } from "./metric/metric.js";
 import { createTable } from "./table/table.js";
+import type { NumvizNamespace } from "./types.js";
 import { VERSION } from "./version.js";
 
 /**
  * Default Numviz namespace, built from the same function references as the
  * named exports. There is a single implementation behind both import styles.
  */
-const Numviz = Object.freeze({
+const Numviz: NumvizNamespace = Object.freeze({
   createChart,
   createTable,
   createMetric,

@@ -111,6 +111,33 @@ describe("React DataTable", () => {
     await act(async () => root.unmount());
   });
 
+  it("supports controlled selection and destroys the engine on unmount", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    const ref = createRef<DataTableHandle>();
+    await act(async () => {
+      root.render(
+        createElement(DataTable, { ref, data: employees, selectable: true, selectedRows: [0] })
+      );
+    });
+    const rows = () => host.querySelectorAll("tbody tr");
+    expect(rows()[0]?.getAttribute("aria-selected")).toBe("true");
+
+    await act(async () => {
+      root.render(
+        createElement(DataTable, { ref, data: employees, selectable: true, selectedRows: [1] })
+      );
+    });
+    expect(rows()[1]?.getAttribute("aria-selected")).toBe("true");
+    expect(rows()[0]?.getAttribute("aria-selected")).toBe("false");
+
+    const table = ref.current?.getTable();
+    await act(async () => root.unmount());
+    expect(table?.isDestroyed).toBe(true);
+    expect(ref.current).toBeNull();
+  });
+
   it("renders loading and error props", async () => {
     const host = document.createElement("div");
     document.body.appendChild(host);

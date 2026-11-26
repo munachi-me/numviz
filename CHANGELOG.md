@@ -2,6 +2,37 @@
 
 All notable changes to Numviz are documented in this file.
 
+## [0.4.1] - 2026-11-26
+
+### Verified
+
+- Audited the root entry point. `createChart`, `createTable` and `createMetric`
+  are already exported as named exports and through the frozen default
+  namespace, and both import styles reference the same functions. The namespace
+  type is now checked against `NumvizNamespace` at compile time.
+- Added root public API tests covering named imports, the default namespace,
+  function-reference equality, the frozen namespace shape, `version`,
+  `NumvizError` and typed chart, table and metric creation through both styles.
+- Extended the packed-package consumer test to install React, import the React
+  subpath separately, server-render `DataTable` and `Metric`, typecheck their
+  declarations, and confirm that no core build file imports React.
+- React tests now cover controlled table selection and verify that table and
+  metric engines are destroyed when their components unmount.
+
+### Fixed
+
+- `scripts/consumer-test.mjs` previously stopped at root package imports and
+  did not exercise the packaged React entry point. It now verifies the React
+  subpath, server rendering and React declaration resolution.
+- The default namespace is typed as `NumvizNamespace`, so a future missing
+  factory function becomes a TypeScript error rather than a runtime-only
+  regression.
+
+### Compatibility
+
+- No runtime API changes. `@munachi-me/numviz` remains the package name and the
+  public factory functions, configuration and result types are unchanged.
+
 ## [0.4.0] - 2026-11-26
 
 ### Added

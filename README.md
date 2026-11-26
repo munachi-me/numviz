@@ -5,8 +5,9 @@ renders charts, HTML data tables and KPI metric cards from ordinary JavaScript
 data — no React, Next.js, Numiq, or CSS framework required. React is optional and
 available from a separate subpath.
 
-**Current release:** `0.4.0` — the metrics and KPI engine, on top of the 0.3.x
-table engine, stabilization work and the 0.2.x chart foundation.
+**Current release:** `0.4.1` — a public API, consumer-package and React
+integration audit of the 0.4.0 metrics release, on top of the 0.3.x table engine
+and 0.2.x chart foundation.
 
 Published on npm as **`@munachi-me/numviz`**.
 
@@ -64,8 +65,11 @@ const chart = Numviz.createChart({
 chart.render(document.querySelector("#chart"));
 ```
 
-`Numviz.createChart === createChart`, and `Numviz.version` matches the named
-`version` export.
+`Numviz.createChart === createChart`, `Numviz.createTable === createTable`,
+`Numviz.createMetric === createMetric`, and `Numviz.version` matches the named
+`version` export. The root entry exports all three factory functions as named
+imports and through the frozen default namespace; the optional React components
+live only in `@munachi-me/numviz/react`.
 
 ## Chart types
 
@@ -555,9 +559,11 @@ npm run verify      # typecheck, lint, tests, build, consumer import test
 
 The build removes `dist/` with `scripts/clean.mjs`, which uses Node's filesystem
 API instead of Unix-only shell commands, so it runs on Windows, macOS and Linux.
-The consumer test packs the package, installs it into a temporary project and
-verifies default imports, named imports, namespace imports, runtime behaviour
-and declaration resolution under the published package name.
+The consumer test packs the package, installs it into a temporary project with
+React, and verifies named, default and namespace imports, chart/table/metric
+runtime behaviour, root declaration resolution and the separate React subpath.
+It also server-renders `DataTable` and `Metric` and confirms that no core build
+file imports React.
 
 ## Release history
 
