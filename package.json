@@ -1,12 +1,14 @@
 {
   "name": "@munachi-me/numviz",
-  "version": "0.3.1",
-  "description": "Framework-independent JavaScript visualization, table and dashboard platform",
+  "version": "0.4.0",
+  "description": "Framework-independent JavaScript visualization, table, metric and dashboard platform",
   "keywords": [
     "charts",
     "dashboard",
     "datatable",
     "dataviz",
+    "kpi",
+    "metric",
     "react",
     "svg",
     "table",

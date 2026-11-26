@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — KPI metrics</title>
+    <link rel="stylesheet" href="shared.css" />
+    <style>
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin: 18px 0 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wide">
+      <a class="back" href="index.html">← All examples</a>
+      <div class="metric-grid">
+        <div id="revenue"></div>
+        <div id="orders"></div>
+        <div id="conversion"></div>
+        <div id="churn"></div>
+      </div>
+      <p class="note">
+        Metrics compute plain JavaScript values before rendering. Cards show
+        formatted values, comparisons, trends and semantic states.
+      </p>
+    </main>
+    <script type="module">
+      import { createMetric } from "../dist/index.js";
+
+      const current = [
+        { month: "Jan", revenue: 108000, orders: 1120, visits: 14000, churn: 0.031 },
+        { month: "Feb", revenue: 119000, orders: 1180, visits: 14800, churn: 0.029 },
+        { month: "Mar", revenue: 126000, orders: 1250, visits: 15600, churn: 0.027 },
+        { month: "Apr", revenue: 129000, orders: 1350, visits: 16600, churn: 0.027 }
+      ];
+      const previous = [
+        { month: "Jan", revenue: 98000, orders: 1020, visits: 13600, churn: 0.034 },
+        { month: "Feb", revenue: 104000, orders: 1090, visits: 14200, churn: 0.033 },
+        { month: "Mar", revenue: 110000, orders: 1130, visits: 15100, churn: 0.03 },
+        { month: "Apr", revenue: 116000, orders: 1180, visits: 16100, churn: 0.029 }
+      ];
+
+      const conversion = (context) => {
+        const orders = context.rows.reduce((total, row) => total + Number(row.values.orders ?? 0), 0);
+        const visits = context.rows.reduce((total, row) => total + Number(row.values.visits ?? 0), 0);
+        return visits === 0 ? null : orders / visits;
+      };
+
+      createMetric({
+        name: "Total revenue",
+        data: current,
+        column: "revenue",
+        aggregation: "sum",
+        format: "currency",
+        description: "Last four months",
+        icon: "$",
+        color: "#6366F1",
+        variant: "highlight",
+        comparison: { data: previous, column: "revenue", aggregation: "sum" }
+      }).render("#revenue");
+
+      createMetric({
+        name: "Orders",
+        data: current,
+        column: "orders",
+        aggregation: "sum",
+        format: "compact",
+        description: "Completed orders",
+        icon: "◫",
+        comparison: { data: previous, column: "orders", aggregation: "sum" }
+      }).render("#orders");
+
+      createMetric({
+        name: "Conversion",
+        data: current,
+        aggregation: conversion,
+        format: "percent",
+        description: "Orders ÷ visits",
+        icon: "%",
+        comparison: { data: previous, aggregation: conversion }
+      }).render("#conversion");
+
+      createMetric({
+        name: "Churn",
+        data: current,
+        column: "churn",
+        aggregation: "average",
+        format: "percent",
+        positiveDirection: "down",
+        description: "Lower is better",
+        icon: "↘",
+        comparison: { data: previous, column: "churn", aggregation: "average" }
+      }).render("#churn");
+    </script>
+  </body>
+</html>

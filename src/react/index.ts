@@ -8,6 +8,12 @@ import {
   useRef,
   type CSSProperties
 } from "react";
+import { createMetric } from "../metric/metric.js";
+import type {
+  Metric as MetricInstance,
+  MetricConfig,
+  MetricResult
+} from "../metric/types.js";
 import { createTable } from "../table/table.js";
 import type {
   Table,
@@ -131,4 +137,67 @@ export const DataTable = forwardRef<DataTableHandle, DataTableProps>(function Da
   });
 });
 
-export type { TableRow };
+export interface MetricProps extends Omit<MetricConfig, "icon"> {
+  /** Text glyph or emoji shown in the KPI header. */
+  icon?: string;
+  /** Inline styles applied to the React host element. */
+  style?: CSSProperties;
+}
+
+export interface MetricHandle {
+  getMetric(): MetricInstance | null;
+  getElement(): HTMLDivElement | null;
+}
+
+function toMetricConfig(props: MetricProps): MetricConfig {
+  const config: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(props)) {
+    if (key === "style") continue;
+    if (value !== undefined) config[key] = value;
+  }
+  return config as unknown as MetricConfig;
+}
+
+/**
+ * React wrapper around the vanilla KPI metric card. React renders only a host
+ * element; the card is created in an effect so server rendering never touches
+ * the DOM. Metric values are recomputed when props change.
+ */
+export const Metric = forwardRef<MetricHandle, MetricProps>(function Metric(props, ref) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const metricRef = useRef<MetricInstance | null>(null);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const metric = createMetric(toMetricConfig(props));
+    metric.render(host);
+    metricRef.current = metric;
+    return () => {
+      metric.destroy();
+      metricRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    metricRef.current?.update(toMetricConfig(props));
+  });
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getMetric: () => metricRef.current,
+      getElement: () => hostRef.current
+    }),
+    []
+  );
+
+  return createElement("div", {
+    ref: hostRef,
+    className: "numviz-react-metric",
+    style: props.style,
+    "data-numviz-react": "metric"
+  });
+});
+
+export type { TableRow, MetricResult, MetricConfig };

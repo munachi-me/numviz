@@ -2,6 +2,46 @@
 
 All notable changes to Numviz are documented in this file.
 
+## [0.4.0] - 2026-11-26
+
+### Added
+
+- Metric engine: `createMetric` computes sum, average, count, distinct count,
+  minimum, maximum, median, percentage and custom aggregations from records,
+  matrix data and dataset input, with callback or exact-match filters.
+- Metric results expose the raw value, formatted value, aggregation, column,
+  row and value counts, comparison details, direction, trend, semantic state
+  and metadata. Calculations work without a DOM.
+- Comparisons against another dataset or a fixed previous value, with
+  difference, percentage change, growth, previous-period labels, zero-division
+  handling, missing-value handling and lower-is-better direction support.
+- KPI cards with title, value, description, prefix/suffix, number, currency,
+  percent and compact formats, text or DOM icons, custom accent colours,
+  comparison text, trend arrows and `default`, `compact`, `bordered` and
+  `highlight` variants.
+- Loading, empty and error appearances, plus `setData`, `setLoading`,
+  `setError`, `refresh`, `update` and `destroy` lifecycle methods.
+- Optional React `Metric` component with typed props and an imperative handle,
+  plus Next.js server-rendering guidance.
+- `metrics.html` example, metric API documentation and KPI/React tests.
+
+### Changed
+
+- The default namespace now includes `createMetric` alongside `createChart`,
+  `createTable`, `version` and `NumvizError`.
+- KPI cards share the existing theme tokens, including the semantic
+  positive/warning/danger/info states and `surfaceElevated`.
+
+### Verified
+
+- Metric tests cover every aggregation, filters, invalid and missing values,
+  comparisons, formatting, metadata, validation, KPI rendering, icons,
+  cross-document icon nodes, loading/empty/error states, updates and teardown.
+- React tests cover server rendering, mounting, prop updates, loading/error and
+  inline styles.
+- The packaged consumer test verifies metric calculations, formatting and the
+  namespace export.
+
 ## [0.3.1] - 2026-11-26
 
 ### Fixed

@@ -1,5 +1,6 @@
 import { createChart } from "./charts/createChart.js";
 import { isNumvizError, NumvizError } from "./errors.js";
+import { createMetric } from "./metric/metric.js";
 import { createTable } from "./table/table.js";
 import { VERSION } from "./version.js";
 
@@ -10,11 +11,12 @@ import { VERSION } from "./version.js";
 const Numviz = Object.freeze({
   createChart,
   createTable,
+  createMetric,
   version: VERSION,
   NumvizError
 });
 
-export { createChart, createTable };
+export { createChart, createTable, createMetric };
 export { NumvizError, isNumvizError };
 export { VERSION as version };
 export default Numviz;
@@ -73,4 +75,28 @@ export type {
   TableState,
   TableVariant
 } from "./table/types.js";
+export type {
+  Metric,
+  MetricAggregation,
+  MetricAggregationAlias,
+  MetricAggregationName,
+  MetricComparisonConfig,
+  MetricComparisonResult,
+  MetricConfig,
+  MetricContext,
+  MetricDirection,
+  MetricFilter,
+  MetricFormat,
+  MetricFormatContext,
+  MetricFormatPreset,
+  MetricFormatter,
+  MetricIcon,
+  MetricResult,
+  MetricRowContext,
+  MetricRowFilter,
+  MetricState,
+  MetricTrend,
+  MetricVariant,
+  MetricAggregator
+} from "./metric/types.js";
 export type { NumvizErrorCode, NumvizErrorOptions } from "./errors.js";

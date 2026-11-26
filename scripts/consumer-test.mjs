@@ -50,12 +50,14 @@ try {
     `import { createRequire } from "node:module";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import Numviz, { createChart, createTable, version, NumvizError } from "${packageName}";
+import Numviz, { createChart, createMetric, createTable, version, NumvizError } from "${packageName}";
 import * as named from "${packageName}";
 
 if (Numviz.createChart !== createChart) throw new Error("default and named createChart differ");
 if (Numviz.createTable !== createTable) throw new Error("default and named createTable differ");
+if (Numviz.createMetric !== createMetric) throw new Error("default and named createMetric differ");
 if (named.createTable !== Numviz.createTable) throw new Error("namespace createTable differs");
+if (named.createMetric !== Numviz.createMetric) throw new Error("namespace createMetric differs");
 if (named.createChart !== Numviz.createChart) throw new Error("namespace import differs");
 if (named.default !== Numviz) throw new Error("namespace default export differs");
 if (Numviz.version !== version) throw new Error("default and named version differ");
@@ -116,7 +118,33 @@ if (!readFileSync(reactEntry, "utf8").trimStart().startsWith('"use client"')) {
 }
 if (!manifest.peerDependencies || !manifest.peerDependencies.react) throw new Error("react should be an optional peer dependency");
 
-console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "no-dom", "table", "react-entry"] }));
+const metric = createMetric({
+  name: "Revenue",
+  data: [
+    { region: "North", revenue: 100 },
+    { region: "South", revenue: "200" }
+  ],
+  column: "revenue",
+  aggregation: "sum",
+  format: "currency",
+  comparison: { value: 100 }
+});
+if (metric.result.value !== 300) throw new Error("metric sum did not normalize numeric strings");
+if (metric.result.formattedValue !== "$300.00") throw new Error("metric formatting failed");
+if (metric.result.comparison?.percentageChange !== 200) throw new Error("metric comparison failed");
+if (metric.result.state !== "positive") throw new Error("metric state failed");
+const countMetric = createMetric({
+  name: "North rows",
+  data: [
+    { region: "North", revenue: 100 },
+    { region: "South", revenue: 200 }
+  ],
+  aggregation: "count",
+  filter: { region: "North" }
+});
+if (countMetric.result.value !== 1) throw new Error("metric filter or count failed");
+
+console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "no-dom", "table", "metric", "react-entry"] }));
 `
   );
   const runtimeOutput = run(process.execPath, ["runtime-check.mjs"], { cwd: fixture }).trim();
@@ -126,9 +154,11 @@ console.log(JSON.stringify({ version, checked: ["default", "named", "namespace",
     path.join(fixture, "consumer.ts"),
     `import Numviz, {
   createChart,
+  createMetric,
   createTable,
   NumvizError,
   type ChartConfig,
+  type MetricConfig,
   type TableConfig
 } from "${packageName}";
 
@@ -155,6 +185,19 @@ const table = createTable(tableConfig);
 const namespaceTable = Numviz.createTable(tableConfig);
 namespaceTable.destroy();
 table.getState();
+
+const metricConfig: MetricConfig = {
+  name: "Revenue",
+  data: [{ region: "North", revenue: 120000 }],
+  column: "revenue",
+  aggregation: "sum",
+  format: "currency",
+  comparison: { value: 100000 }
+};
+const metric = createMetric(metricConfig);
+const namespaceMetric = Numviz.createMetric(metricConfig);
+metric.result.value;
+namespaceMetric.destroy();
 
 const error: NumvizError = new NumvizError("example", { code: "INVALID_CONFIG" });
 console.log(error.code, Numviz.version);
