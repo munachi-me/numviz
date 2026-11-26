@@ -8,10 +8,15 @@ const THEME_STRING_TOKENS = [
   "fontFamily",
   "background",
   "surface",
+  "surfaceElevated",
   "text",
   "mutedText",
   "border",
-  "grid"
+  "grid",
+  "positive",
+  "warning",
+  "danger",
+  "info"
 ] as const;
 
 /** Validate and copy a partial theme configuration. */

@@ -417,3 +417,177 @@ describe("table validation", () => {
     frame.remove();
   });
 });
+
+describe("pagination on and off", () => {
+  const dataset = Array.from({ length: 25 }, (_, index) => ({
+    id: index + 1,
+    name: `Person ${index + 1}`,
+    score: (index * 7) % 25
+  }));
+
+  it("renders every filtered and sorted row when pagination is disabled", () => {
+    const container = mount();
+    const table = createTable({
+      data: dataset,
+      rowNumbers: true,
+      selectable: true,
+      searchable: true
+    }).render(container);
+
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(25);
+    expect(cells(container, 0)[1]).toBe("1");
+    expect(cells(container, 24)[1]).toBe("25");
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("Showing 1–25 of 25 rows");
+    expect(table.getState().pageCount).toBe(1);
+
+    click(container.querySelector('button[data-field="score"]'));
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(25);
+    expect(bodyTexts(container)[0]).toContain("Person 1");
+    expect(bodyTexts(container)[24]).toContain("Person 8");
+    expect(cells(container, 0)[1]).toBe("1");
+    expect(cells(container, 24)[1]).toBe("25");
+
+    const selectAll = container.querySelector<HTMLInputElement>('thead input[type="checkbox"]');
+    if (!selectAll) throw new Error("missing select all");
+    selectAll.checked = true;
+    selectAll.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(table.getSelectedRows()).toHaveLength(25);
+
+    const input = container.querySelector<HTMLInputElement>('input[type="search"]');
+    if (!input) throw new Error("missing search input");
+    input.value = "Person 2";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(7);
+    expect(cells(container, 0)[1]).toBe("1");
+    expect(cells(container, 6)[1]).toBe("7");
+    expect(container.querySelector('[role="status"]')?.textContent).toContain(
+      "Showing 1–7 of 7 rows (filtered from 25)"
+    );
+
+    input.value = "nobody";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(container.querySelector(".numviz-table__empty")?.textContent).toBe("No matching rows");
+  });
+
+  it("clamps the page when data shrinks or a search narrows results", () => {
+    const container = mount();
+    const table = createTable({
+      data: dataset,
+      pagination: true,
+      pageSize: 10,
+      searchable: true
+    }).render(container);
+
+    table.setPage(3);
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(5);
+    expect(container.querySelector(".numviz-table__page-status")?.textContent).toBe("Page 3 of 3");
+
+    table.setData(dataset.slice(0, 5));
+    expect(table.getState().page).toBe(1);
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(5);
+    expect(container.querySelector(".numviz-table__page-status")?.textContent).toBe("Page 1 of 1");
+
+    table.setData(dataset);
+    table.setPage(3);
+    table.setSearch("Person 1");
+    expect(table.getState().page).toBe(1);
+    expect(table.getState().pageCount).toBe(2);
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(10);
+    expect(container.querySelector(".numviz-table__page-status")?.textContent).toBe("Page 1 of 2");
+    expect(container.querySelector('[role="status"]')?.textContent).toContain(
+      "Showing 1–10 of 11 rows"
+    );
+  });
+
+  it("scopes select-all to the visible page when paginated", () => {
+    const container = mount();
+    const table = createTable({
+      data: dataset,
+      pagination: true,
+      pageSize: 10,
+      selectable: true
+    }).render(container);
+
+    click(container.querySelector('button[aria-label="Next page"]'));
+    const selectAll = container.querySelector<HTMLInputElement>('thead input[type="checkbox"]');
+    if (!selectAll) throw new Error("missing select all");
+    selectAll.checked = true;
+    selectAll.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(table.getState().selectedRows).toEqual([
+      10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+    ]);
+    expect(table.getSelectedRows()).toHaveLength(10);
+  });
+});
+
+describe("cross-document table renderers", () => {
+  it("appends renderer nodes created inside an iframe document", () => {
+    const frame = document.createElement("iframe");
+    document.body.appendChild(frame);
+    const frameDoc = frame.contentDocument;
+    if (!frameDoc) throw new Error("missing iframe document");
+    const container = frameDoc.createElement("div");
+    frameDoc.body.appendChild(container);
+
+    createTable({
+      data: [{ name: "Ada", salary: 120000 }],
+      columns: [
+        { field: "salary", format: "currency" },
+        {
+          field: "name",
+          label: "Badge",
+          render: (row) => {
+            const span = frameDoc.createElement("span");
+            span.className = "frame-badge";
+            span.textContent = String(row.name).toUpperCase();
+            return span;
+          }
+        }
+      ]
+    }).render(container);
+
+    const badge = container.querySelector("span.frame-badge");
+    expect(badge).not.toBeNull();
+    expect(badge?.textContent).toBe("ADA");
+    expect(frameDoc.getElementById("numviz-table-styles")).not.toBeNull();
+    frame.remove();
+  });
+
+  it("recognises renderer nodes without relying on the global Node constructor", () => {
+    const container = mount();
+    createTable({
+      data: [{ value: 1 }],
+      columns: [
+        {
+          field: "value",
+          render: () => {
+            const strong = document.createElement("strong");
+            strong.className = "local-node";
+            strong.textContent = "node";
+            return strong;
+          }
+        }
+      ]
+    }).render(container);
+    expect(container.querySelector("strong.local-node")?.textContent).toBe("node");
+  });
+});
+
+describe("responsive table configuration", () => {
+  it("marks fluid tables as responsive by default", () => {
+    const container = mount();
+    createTable({ data: employees }).render(container);
+    const root = container.querySelector(".numviz-table") as HTMLElement;
+    expect(root.classList.contains("numviz-table--responsive")).toBe(true);
+    expect(root.classList.contains("numviz-table--fixed")).toBe(false);
+  });
+
+  it("marks content-sized tables as fixed", () => {
+    const container = mount();
+    createTable({ data: employees, responsive: false }).render(container);
+    const root = container.querySelector(".numviz-table") as HTMLElement;
+    expect(root.classList.contains("numviz-table--fixed")).toBe(true);
+    expect(root.classList.contains("numviz-table--responsive")).toBe(false);
+  });
+});

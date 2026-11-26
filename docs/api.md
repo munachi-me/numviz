@@ -1,4 +1,4 @@
-# Numviz API reference — 0.3.0
+# Numviz API reference — 0.3.1
 
 ## Entry points
 
@@ -149,7 +149,7 @@ const table = createTable({
 | `title` | — | Heading above the table |
 | `caption` | — | Accessible caption text |
 | `ariaLabel` | — | Overrides the table accessible name |
-| `responsive` | `true` | Wrap the table in a scrollable viewport |
+| `responsive` | `true` | `true`: stretch to the container and scroll horizontally when needed. `false`: size to content with no horizontal scrolling |
 
 ### Table columns
 
@@ -189,8 +189,10 @@ Return a DOM node from `render` to add markup.
 | `getState()` | Sort, page, page count, query, selection and counts |
 | `destroy()` | Removes output and listeners |
 
-Only the current page is rendered; sorting, filtering and selection operate on
-the normalized row list, so large datasets do not create a DOM row per record.
+Only the current page is rendered when `pagination` is enabled; with pagination
+disabled every filtered and sorted row is rendered and `getState().pageCount`
+is `1`. Sorting, filtering and selection operate on the normalized row list, so
+pagination never creates a DOM row per record.
 
 ## React entry point
 
@@ -304,9 +306,11 @@ interface ChartClickEvent {
 | `fontFamily`, `borderRadius` | Typography and shape |
 | `chartPalette` | Default series colours |
 
-Charts expose CSS custom properties (`--nv-*`, including
-`--nv-animation-duration`) and documented class hooks so applications can
-restyle output without forking the renderer.
+Every token in the table is configurable through `ThemeConfig`. Charts and
+tables expose CSS custom properties (`--nv-*`, including
+`--nv-surface-elevated`, `--nv-positive`, `--nv-warning`, `--nv-danger`,
+`--nv-info` and `--nv-animation-duration`) and documented class hooks so
+applications can restyle output without forking the renderer.
 
 ## Errors
 
@@ -328,7 +332,8 @@ Configuration errors throw `NumvizError` with `code: "INVALID_CONFIG"` and the
 offending `path`. Validated values include:
 
 - `theme` string tokens (`accent`, `fontFamily`, `background`, `surface`,
-  `text`, `mutedText`, `border`, `grid`), `theme.chartPalette` entries and
+  `surfaceElevated`, `text`, `mutedText`, `border`, `grid`, `positive`,
+  `warning`, `danger`, `info`), `theme.chartPalette` entries and
   `theme.borderRadius`.
 - `series` must be a non-empty array of objects with non-empty `field`,
   optional non-empty `label` and `color`, and unique fields.
