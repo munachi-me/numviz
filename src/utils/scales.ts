@@ -17,16 +17,29 @@ function niceStep(rawStep: number): number {
   return niceFraction * 10 ** exponent;
 }
 
+export interface ScaleBounds {
+  readonly min?: number;
+  readonly max?: number;
+  /** Include zero in an automatic domain. Defaults to true. */
+  readonly includeZero?: boolean;
+}
+
 /** Build a linear scale from a data range to a pixel range, including zero. */
 export function linearScale(
   values: readonly number[],
   rangeStart: number,
   rangeEnd: number,
-  tickCount = 5
+  tickCount = 5,
+  bounds: ScaleBounds = {}
 ): LinearScale {
   const finite = values.filter((value) => Number.isFinite(value));
-  let min = finite.length > 0 ? Math.min(...finite, 0) : 0;
-  let max = finite.length > 0 ? Math.max(...finite, 0) : 1;
+  const includeZero = bounds.includeZero ?? true;
+  let min =
+    bounds.min ??
+    (finite.length > 0 ? (includeZero ? Math.min(...finite, 0) : Math.min(...finite)) : 0);
+  let max =
+    bounds.max ??
+    (finite.length > 0 ? (includeZero ? Math.max(...finite, 0) : Math.max(...finite)) : 1);
   if (min === max) {
     if (max === 0) max = 1;
     else {

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Stacked bar chart</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← All examples</a>
+      <div id="chart"></div>
+      <p class="note">Stacked totals per category with in-bar data labels.</p>
+    </main>
+    <script type="module">
+      import Numviz from "../dist/index.js";
+
+      Numviz.createChart({
+        type: "stacked-bar",
+        data: [
+          { channel: "Q1", direct: 4200, search: 6100, social: 2400 },
+          { channel: "Q2", direct: 4800, search: 6800, social: 2900 },
+          { channel: "Q3", direct: 5100, search: 7200, social: 3300 }
+        ],
+        x: "channel",
+        y: "direct",
+        series: [
+          { field: "direct", label: "Direct", color: "#6366F1" },
+          { field: "search", label: "Search", color: "#06B6D4" },
+          { field: "social", label: "Social", color: "#10B981" }
+        ],
+        title: "Sessions by channel",
+        labels: { position: "inside" }
+      }).render("#chart");
+    </script>
+  </body>
+</html>

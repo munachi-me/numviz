@@ -1,4 +1,9 @@
-import type { NormalizedDataset, ResolvedChartConfig, ThemeTokens } from "../types.js";
+import type {
+  NormalizedDataset,
+  ResolvedChartConfig,
+  ResolvedSeries,
+  ThemeTokens
+} from "../types.js";
 
 /** Internal context passed to chart renderers. */
 export interface RenderContext {
@@ -7,6 +12,8 @@ export interface RenderContext {
   readonly config: ResolvedChartConfig;
   readonly data: NormalizedDataset;
   readonly tokens: ThemeTokens;
+  readonly hiddenSeries: ReadonlySet<number>;
+  toggleSeries(index: number): void;
   onCleanup(cleanup: () => void): void;
 }
 
@@ -19,11 +26,7 @@ export interface Box {
   readonly bottom: number;
 }
 
-export function box(x: number, y: number, width: number, height: number): Box {
-  return { x, y, width, height, right: x + width, bottom: y + height };
-}
-
-/** Read a normalized cell value from a row. */
-export function valueOf(row: { readonly values: Readonly<Record<string, unknown>> }, field: string): unknown {
-  return row.values[field] ?? null;
+/** Series that are currently shown. */
+export function visibleSeries(ctx: RenderContext): readonly ResolvedSeries[] {
+  return ctx.config.series.filter((series) => !ctx.hiddenSeries.has(series.index));
 }

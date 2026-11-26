@@ -74,7 +74,16 @@ const BASE_CSS = `
 .numviz-chart__tick-label { font-size: 11px; fill: var(--nv-muted-text); }
 .numviz-chart__axis-title { font-size: 11px; font-weight: 600; fill: var(--nv-muted-text); }
 .numviz-chart__value-label { font-size: 11px; font-weight: 600; fill: var(--nv-text); }
-.numviz-chart__mark { transition: opacity 120ms ease, filter 120ms ease; cursor: default; }
+.numviz-chart__mark {
+  cursor: default;
+  animation: numviz-fade-in var(--nv-animation-duration, 240ms) ease-out both;
+  transition: opacity 120ms ease, filter 120ms ease;
+}
+@keyframes numviz-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+[data-nv-animation="off"] .numviz-chart__mark { animation: none; }
 .numviz-chart__mark:hover,
 .numviz-chart__mark:focus-visible { filter: brightness(1.08); }
 .numviz-chart__mark:focus-visible { outline: 2px solid var(--nv-accent); outline-offset: 2px; }
@@ -97,7 +106,8 @@ const BASE_CSS = `
   font-size: 12px;
   color: var(--nv-muted-text);
 }
-.numviz-legend__item { display: inline-flex; align-items: center; gap: 6px; }
+.numviz-legend__item { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.numviz-legend__item:focus-visible { outline: 2px solid var(--nv-accent); outline-offset: 2px; }
 .numviz-legend__swatch {
   width: 10px;
   height: 10px;
@@ -127,7 +137,10 @@ const BASE_CSS = `
 .numviz-tooltip__label { display: block; font-weight: 600; margin-bottom: 2px; }
 .numviz-tooltip__value { color: var(--nv-muted-text); }
 @media (prefers-reduced-motion: reduce) {
-  .numviz-chart__mark,
+  .numviz-chart__mark {
+    animation: none;
+    transition: none;
+  }
   .numviz-tooltip { transition: none; }
 }
 `;

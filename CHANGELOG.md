@@ -2,6 +2,37 @@
 
 All notable changes to Numviz are documented in this file.
 
+## [0.2.0] - 2026-11-26
+
+### Added
+
+- New chart types: area, grouped bar, stacked bar, horizontal bar, scatter,
+  histogram and radar.
+- Multi-series support through `series` with per-series labels and colours.
+- Axis configuration for titles, visibility, grid lines, tick rotation, tick
+  formatting and numeric domain bounds.
+- Interactive legends that toggle series visibility by pointer or keyboard.
+- `chart.setSeriesVisible()` for programmatic series visibility.
+- `onClick` mark activation with series context for pointer and keyboard users.
+- Hover/focus highlighting that dims unrelated categories or series.
+- Responsive layout: charts measure their container and re-render on resize,
+  unless an explicit `width` is set.
+- Label position control (`auto`, `inside`, `outside`) and animation
+  configuration with reduced-motion support.
+- Scatter support for numeric and date X fields, and configurable histogram bins.
+
+### Changed
+
+- Package name is now `@munachi-me/numviz` to match the npm publication target.
+- Default chart width follows the render container instead of always using 720px.
+- Tooltip formatters receive the series label in their context.
+- Removed the development roadmap prompt file from the repository.
+
+### Fixed
+
+- Chart marks now dim reliably after they are attached to the DOM.
+- Category tick labels no longer skip every other label when space is available.
+
 ## [0.1.0] - 2026-11-26
 
 ### Added

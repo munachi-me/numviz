@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Horizontal bar chart</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← All examples</a>
+      <div id="chart"></div>
+      <p class="note">Categories on the Y axis, values on the X axis.</p>
+    </main>
+    <script type="module">
+      import { createChart } from "../dist/index.js";
+
+      createChart({
+        type: "horizontal-bar",
+        data: [
+          { region: "North", orders: 1240 },
+          { region: "South", orders: 980 },
+          { region: "East", orders: 1510 },
+          { region: "West", orders: 1120 }
+        ],
+        x: "region",
+        y: "orders",
+        title: "Orders by region",
+        labels: { position: "outside" },
+        xAxis: { title: "Orders", tickFormat: (value) => Number(value).toLocaleString() }
+      }).render("#chart");
+    </script>
+  </body>
+</html>

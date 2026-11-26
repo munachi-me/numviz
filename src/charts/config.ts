@@ -1,173 +1,133 @@
 import { NumvizError } from "../errors.js";
 import { normalizeData } from "../data/normalize.js";
-import { DEFAULT_PALETTE } from "../theme/tokens.js";
 import type {
   ChartConfig,
   ChartType,
-  LabelConfig,
-  LegendConfig,
-  LegendPosition,
-  MarginConfig,
   NormalizedDataset,
   ResolvedChartConfig,
-  ThemeConfig,
-  ThemeMode,
-  TooltipConfig
+  ResolvedSeries,
+  SeriesConfig
 } from "../types.js";
+import {
+  isPlainObject,
+  resolveAnimation,
+  resolveAxis,
+  resolveBins,
+  resolveHeight,
+  resolveLabels,
+  resolveLegend,
+  resolveMargin,
+  resolvePalette,
+  resolveThemeConfig,
+  resolveTooltip,
+  resolveWidth
+} from "./options.js";
 
-const CHART_TYPES: readonly ChartType[] = ["bar", "line", "pie", "doughnut"];
-const LEGEND_POSITIONS: readonly LegendPosition[] = ["top", "bottom", "left", "right"];
-const THEME_MODES: readonly ThemeMode[] = ["light", "dark", "system"];
+export const CHART_TYPES: readonly ChartType[] = [
+  "bar",
+  "line",
+  "pie",
+  "doughnut",
+  "area",
+  "stacked-bar",
+  "grouped-bar",
+  "horizontal-bar",
+  "scatter",
+  "histogram",
+  "radar"
+];
 
-const DEFAULT_MARGIN: MarginConfig = { top: 16, right: 20, bottom: 44, left: 56 };
-const DEFAULT_WIDTH = 720;
-const DEFAULT_HEIGHT = 380;
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function requirePositiveNumber(value: unknown, path: string, fallback: number): number {
-  if (value === undefined) return fallback;
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-    throw new NumvizError(`\`${path}\` must be a positive finite number.`, {
-      code: "INVALID_CONFIG",
-      path,
-      details: { received: value }
-    });
-  }
-  return value;
-}
-
-function resolvePalette(config: ChartConfig, theme: ThemeConfig): readonly string[] {
-  const candidate = config.palette ?? theme.chartPalette ?? DEFAULT_PALETTE;
-  if (!Array.isArray(candidate) || candidate.length === 0) {
-    throw new NumvizError("`palette` must be a non-empty array of CSS colour strings.", {
-      code: "INVALID_CONFIG",
-      path: "palette"
-    });
-  }
-  candidate.forEach((color, index) => {
-    if (typeof color !== "string" || color.trim() === "") {
-      throw new NumvizError("Every palette colour must be a non-empty string.", {
-        code: "INVALID_CONFIG",
-        path: `palette[${index}]`
-      });
-    }
-  });
-  return [...candidate];
-}
-
-function resolveMargin(margin: ChartConfig["margin"]): MarginConfig {
-  if (margin === undefined) return { ...DEFAULT_MARGIN };
-  if (typeof margin === "number") {
-    if (!Number.isFinite(margin) || margin < 0) {
-      throw new NumvizError("`margin` must be a non-negative number.", {
-        code: "INVALID_CONFIG",
-        path: "margin"
-      });
-    }
-    return { top: margin, right: margin, bottom: margin, left: margin };
-  }
-  if (!isPlainObject(margin)) {
-    throw new NumvizError("`margin` must be a number or an object with top/right/bottom/left.", {
-      code: "INVALID_CONFIG",
-      path: "margin"
-    });
-  }
-  const resolved = { ...DEFAULT_MARGIN };
-  for (const side of ["top", "right", "bottom", "left"] as const) {
-    const value = margin[side];
-    if (value === undefined) continue;
-    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
-      throw new NumvizError(`\`margin.${side}\` must be a non-negative number.`, {
-        code: "INVALID_CONFIG",
-        path: `margin.${side}`
-      });
-    }
-    resolved[side] = value;
-  }
-  return resolved;
-}
-
-function resolveThemeConfig(input: ChartConfig["theme"]): ThemeConfig {
-  if (input === undefined) return {};
-  if (!isPlainObject(input)) {
-    throw new NumvizError("`theme` must be an object.", { code: "INVALID_CONFIG", path: "theme" });
-  }
-  const theme = input as ThemeConfig;
-  if (theme.mode !== undefined && !THEME_MODES.includes(theme.mode)) {
-    throw new NumvizError(`\`theme.mode\` must be one of: ${THEME_MODES.join(", ")}.`, {
-      code: "INVALID_CONFIG",
-      path: "theme.mode",
-      details: { received: theme.mode }
-    });
-  }
-  if (
-    theme.borderRadius !== undefined &&
-    (typeof theme.borderRadius !== "number" || theme.borderRadius < 0)
-  ) {
-    throw new NumvizError("`theme.borderRadius` must be a non-negative number.", {
-      code: "INVALID_CONFIG",
-      path: "theme.borderRadius"
-    });
-  }
-  return { ...theme };
-}
-
-function resolveLegend(config: ChartConfig): { show: boolean; position: LegendPosition } {
-  const defaultShow = config.type === "pie" || config.type === "doughnut";
-  const defaultPosition: LegendPosition = defaultShow ? "right" : "top";
-  if (config.legend === undefined) return { show: defaultShow, position: defaultPosition };
-  if (typeof config.legend === "boolean") return { show: config.legend, position: defaultPosition };
-  if (!isPlainObject(config.legend)) {
-    throw new NumvizError("`legend` must be a boolean or an object with show/position.", {
-      code: "INVALID_CONFIG",
-      path: "legend"
-    });
-  }
-  const legend = config.legend as LegendConfig;
-  const position = legend.position ?? defaultPosition;
-  if (!LEGEND_POSITIONS.includes(position)) {
-    throw new NumvizError(`\`legend.position\` must be one of: ${LEGEND_POSITIONS.join(", ")}.`, {
-      code: "INVALID_CONFIG",
-      path: "legend.position"
-    });
-  }
-  return { show: legend.show ?? true, position };
-}
-
-function resolveLabels(config: ChartConfig): ResolvedChartConfig["labels"] {
-  if (config.labels === undefined) return { show: false };
-  if (typeof config.labels === "boolean") return { show: config.labels };
-  if (!isPlainObject(config.labels)) {
-    throw new NumvizError("`labels` must be a boolean or an object with show/formatter.", {
-      code: "INVALID_CONFIG",
-      path: "labels"
-    });
-  }
-  const labels = config.labels as LabelConfig;
-  const show = labels.show ?? true;
-  return labels.formatter ? { show, formatter: labels.formatter } : { show };
-}
-
-function resolveTooltip(config: ChartConfig): ResolvedChartConfig["tooltip"] {
-  if (config.tooltip === undefined) return { show: true };
-  if (typeof config.tooltip === "boolean") return { show: config.tooltip };
-  if (!isPlainObject(config.tooltip)) {
-    throw new NumvizError("`tooltip` must be a boolean or an object with show/formatter.", {
-      code: "INVALID_CONFIG",
-      path: "tooltip"
-    });
-  }
-  const tooltip = config.tooltip as TooltipConfig;
-  const show = tooltip.show ?? true;
-  return tooltip.formatter ? { show, formatter: tooltip.formatter } : { show };
-}
+const ARC_TYPES: readonly ChartType[] = ["pie", "doughnut"];
 
 export interface ResolvedChart {
   readonly config: ResolvedChartConfig;
   readonly data: NormalizedDataset;
+}
+
+interface SeriesContext {
+  readonly config: ChartConfig;
+  readonly data: NormalizedDataset;
+  readonly palette: readonly string[];
+  readonly yKey: string;
+}
+
+function resolveSeries(context: SeriesContext): ResolvedSeries[] {
+  const { config, data, palette, yKey } = context;
+  const definitions: readonly SeriesConfig[] =
+    config.series && config.series.length > 0 ? config.series : [{ field: yKey }];
+  const seen = new Set<string>();
+  const available = data.columns.map((column) => column.key);
+
+  return definitions.map((definition, index) => {
+    if (
+      !isPlainObject(definition) ||
+      typeof definition.field !== "string" ||
+      definition.field.trim() === ""
+    ) {
+      throw new NumvizError("Each series must be an object with a non-empty `field`.", {
+        code: "INVALID_CONFIG",
+        path: `series[${index}]`
+      });
+    }
+    const field = definition.field.trim();
+    if (seen.has(field)) {
+      throw new NumvizError(`Duplicate series field "${field}".`, {
+        code: "INVALID_CONFIG",
+        path: `series[${index}].field`
+      });
+    }
+    seen.add(field);
+    const column = data.columns.find((entry) => entry.key === field);
+    if (!column && !data.empty) {
+      throw new NumvizError(`Unknown series field "${field}". Available fields: ${available.join(", ")}.`, {
+        code: "INVALID_CONFIG",
+        path: `series[${index}].field`,
+        details: { available }
+      });
+    }
+    if (column && column.type !== "number" && !data.empty) {
+      const hasValue = data.rows.some(
+        (row) => row.values[field] !== null && row.values[field] !== undefined
+      );
+      if (hasValue) {
+        throw new NumvizError(
+          `Series field "${field}" must contain numeric values. Its normalized type is "${column.type}".`,
+          { code: "INVALID_DATA", path: `series[${index}].field` }
+        );
+      }
+    }
+    if (definition.color !== undefined && typeof definition.color !== "string") {
+      throw new NumvizError("Series colours must be CSS colour strings.", {
+        code: "INVALID_CONFIG",
+        path: `series[${index}].color`
+      });
+    }
+    return {
+      index,
+      field,
+      label: definition.label ?? column?.label ?? field,
+      color: definition.color ?? (palette[index % palette.length] as string)
+    };
+  });
+}
+
+function validateStrings(config: ChartConfig): void {
+  for (const [path, value] of [
+    ["title", config.title],
+    ["subtitle", config.subtitle],
+    ["background", config.background],
+    ["ariaLabel", config.ariaLabel]
+  ] as const) {
+    if (value !== undefined && typeof value !== "string") {
+      throw new NumvizError(`\`${path}\` must be a string.`, { code: "INVALID_CONFIG", path });
+    }
+  }
+  if (config.onClick !== undefined && typeof config.onClick !== "function") {
+    throw new NumvizError("`onClick` must be a function.", {
+      code: "INVALID_CONFIG",
+      path: "onClick"
+    });
+  }
 }
 
 /** Validate a user configuration and normalize its data. */
@@ -187,10 +147,14 @@ export function resolveChart(config: ChartConfig): ResolvedChart {
   if (config.data === undefined || config.data === null) {
     throw new NumvizError("`data` is required.", { code: "INVALID_CONFIG", path: "data" });
   }
+  validateStrings(config);
 
+  const isArc = ARC_TYPES.includes(config.type);
+  const isHistogram = config.type === "histogram";
   const xField = config.x ?? config.category;
   const yField = config.y ?? config.value;
-  if (typeof xField !== "string" || xField.trim() === "") {
+
+  if (!isHistogram && (typeof xField !== "string" || xField.trim() === "")) {
     throw new NumvizError(
       "A category field is required. Provide `x` (or `category`) with the name of the category column.",
       { code: "INVALID_CONFIG", path: "x" }
@@ -205,26 +169,28 @@ export function resolveChart(config: ChartConfig): ResolvedChart {
 
   const theme = resolveThemeConfig(config.theme);
   const data = normalizeData(config.data, config.columns);
-  const xKey = xField.trim();
+  const palette = resolvePalette(config, theme);
+  const xKey = typeof xField === "string" ? xField.trim() : "";
   const yKey = yField.trim();
+  const available = data.columns.map((column) => column.key);
 
-  if (!data.empty) {
-    const xColumn = data.columns.find((column) => column.key === xKey);
-    const yColumn = data.columns.find((column) => column.key === yKey);
-    const available = data.columns.map((column) => column.key);
-    if (!xColumn) {
-      throw new NumvizError(
-        `Unknown category field "${xKey}". Available fields: ${available.join(", ")}.`,
-        { code: "INVALID_CONFIG", path: "x", details: { available } }
-      );
+  const findColumn = (key: string, path: string) => {
+    const column = data.columns.find((entry) => entry.key === key);
+    if (!column && !data.empty) {
+      throw new NumvizError(`Unknown field "${key}". Available fields: ${available.join(", ")}.`, {
+        code: "INVALID_CONFIG",
+        path,
+        details: { available }
+      });
     }
-    if (!yColumn) {
-      throw new NumvizError(
-        `Unknown value field "${yKey}". Available fields: ${available.join(", ")}.`,
-        { code: "INVALID_CONFIG", path: "y", details: { available } }
-      );
-    }
-    const hasValue = data.rows.some((row) => row.values[yKey] !== null && row.values[yKey] !== undefined);
+    return column;
+  };
+
+  const yColumn = findColumn(yKey, "y");
+  if (yColumn && !data.empty) {
+    const hasValue = data.rows.some(
+      (row) => row.values[yKey] !== null && row.values[yKey] !== undefined
+    );
     if (yColumn.type !== "number" && hasValue) {
       throw new NumvizError(
         `Value field "${yKey}" must contain numeric values. Its normalized type is "${yColumn.type}".`,
@@ -233,39 +199,43 @@ export function resolveChart(config: ChartConfig): ResolvedChart {
     }
   }
 
-  const title = config.title;
-  const subtitle = config.subtitle;
-  for (const [path, value] of [
-    ["title", title],
-    ["subtitle", subtitle]
-  ] as const) {
-    if (value !== undefined && typeof value !== "string") {
-      throw new NumvizError(`\`${path}\` must be a string.`, { code: "INVALID_CONFIG", path });
-    }
+  const xColumn = xKey ? findColumn(xKey, "x") : undefined;
+  if (config.type === "scatter" && xColumn && xColumn.type !== "number" && xColumn.type !== "date") {
+    throw new NumvizError(
+      `Scatter charts need a numeric or date X field. "${xKey}" is "${xColumn.type}".`,
+      { code: "INVALID_DATA", path: "x", details: { field: xKey, type: xColumn.type } }
+    );
   }
-  if (config.background !== undefined && typeof config.background !== "string") {
-    throw new NumvizError("`background` must be a CSS colour string.", {
-      code: "INVALID_CONFIG",
-      path: "background"
-    });
-  }
+
+  const series = isArc ? [] : resolveSeries({ config, data, palette, yKey });
 
   const resolved: ResolvedChartConfig = {
     type: config.type,
     x: xKey,
     y: yKey,
-    width: requirePositiveNumber(config.width, "width", DEFAULT_WIDTH),
-    height: requirePositiveNumber(config.height, "height", DEFAULT_HEIGHT),
-    palette: resolvePalette(config, theme),
+    series,
+    width: resolveWidth(config),
+    height: resolveHeight(config),
+    palette,
     background: config.background ?? "",
-    legend: resolveLegend(config),
+    legend: resolveLegend(config, series.length > 1),
     labels: resolveLabels(config),
     tooltip: resolveTooltip(config),
     margin: resolveMargin(config.margin),
     theme,
-    ...(title !== undefined ? { title } : {}),
-    ...(subtitle !== undefined ? { subtitle } : {}),
-    ...(config.ariaLabel !== undefined ? { ariaLabel: config.ariaLabel } : {})
+    xAxis: resolveAxis(
+      config.xAxis,
+      "xAxis",
+      config.type === "horizontal-bar" || config.type === "histogram"
+    ),
+    yAxis: resolveAxis(config.yAxis, "yAxis", true),
+    responsive: config.responsive ?? true,
+    animation: resolveAnimation(config.animation),
+    ...(config.title !== undefined ? { title: config.title } : {}),
+    ...(config.subtitle !== undefined ? { subtitle: config.subtitle } : {}),
+    ...(config.ariaLabel !== undefined ? { ariaLabel: config.ariaLabel } : {}),
+    ...(config.bins !== undefined ? { bins: resolveBins(config.bins) } : {}),
+    ...(config.onClick !== undefined ? { onClick: config.onClick } : {})
   };
 
   return { config: resolved, data };

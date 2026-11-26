@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Radar chart</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← All examples</a>
+      <div id="chart"></div>
+      <p class="note">Two teams compared across six skill categories.</p>
+    </main>
+    <script type="module">
+      import { createChart } from "../dist/index.js";
+
+      createChart({
+        type: "radar",
+        data: [
+          { skill: "Design", alpha: 8, beta: 6 },
+          { skill: "Frontend", alpha: 9, beta: 7 },
+          { skill: "Backend", alpha: 6, beta: 9 },
+          { skill: "Testing", alpha: 7, beta: 8 },
+          { skill: "Docs", alpha: 5, beta: 7 },
+          { skill: "Support", alpha: 8, beta: 6 }
+        ],
+        x: "skill",
+        y: "alpha",
+        series: [
+          { field: "alpha", label: "Team Alpha", color: "#6366F1" },
+          { field: "beta", label: "Team Beta", color: "#F59E0B" }
+        ],
+        title: "Team capabilities"
+      }).render("#chart");
+    </script>
+  </body>
+</html>

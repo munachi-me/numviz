@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Area chart</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← All examples</a>
+      <div id="chart"></div>
+      <p class="note">Multi-series area chart with axis titles.</p>
+    </main>
+    <script type="module">
+      import { createChart } from "../dist/index.js";
+
+      createChart({
+        type: "area",
+        data: [
+          { week: "W1", desktop: 3200, mobile: 5400 },
+          { week: "W2", desktop: 3600, mobile: 6100 },
+          { week: "W3", desktop: 3400, mobile: 6800 },
+          { week: "W4", desktop: 4100, mobile: 7200 },
+          { week: "W5", desktop: 4600, mobile: 8100 }
+        ],
+        x: "week",
+        y: "desktop",
+        series: [
+          { field: "desktop", label: "Desktop", color: "#6366F1" },
+          { field: "mobile", label: "Mobile", color: "#10B981" }
+        ],
+        title: "Weekly sessions",
+        xAxis: { title: "Week" },
+        yAxis: { title: "Sessions" }
+      }).render("#chart");
+    </script>
+  </body>
+</html>

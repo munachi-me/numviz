@@ -4,13 +4,15 @@ Framework-independent JavaScript visualization and dashboard platform. Numviz
 renders charts from ordinary JavaScript data — no React, Next.js, Numiq, or CSS
 framework required.
 
-**Current release:** `0.1.0` — core foundation with bar, line, pie and doughnut
-charts.
+**Current release:** `0.2.0` — advanced charts, multi-series data, axis
+control, legend interactions and responsive layout.
+
+Published on npm as **`@munachi-me/numviz`**.
 
 ## Install
 
 ```bash
-npm install numviz
+npm install @munachi-me/numviz
 ```
 
 Numviz is an ESM-first package with bundled TypeScript declarations. It has no
@@ -23,7 +25,7 @@ Both import styles are first-class and share one implementation.
 ### Named imports
 
 ```ts
-import { createChart } from "numviz";
+import { createChart } from "@munachi-me/numviz";
 
 const chart = createChart({
   type: "bar",
@@ -46,7 +48,7 @@ chart.destroy();
 ### Default namespace import
 
 ```ts
-import Numviz from "numviz";
+import Numviz from "@munachi-me/numviz";
 
 const chart = Numviz.createChart({
   type: "line",
@@ -68,13 +70,42 @@ chart.render(document.querySelector("#chart"));
 
 | Type | `type` value | Notes |
 | --- | --- | --- |
-| Bar | `"bar"` | Categorical X axis, linear Y axis, hover/focus tooltips |
-| Line | `"line"` | Trend line with points, gaps where values are missing |
+| Bar | `"bar"` | Vertical bars; grouped when several series are supplied |
+| Grouped bar | `"grouped-bar"` | Side-by-side bars per category |
+| Stacked bar | `"stacked-bar"` | Series stacked per category |
+| Horizontal bar | `"horizontal-bar"` | Categories on the Y axis |
+| Line | `"line"` | One or more lines with points and gaps for missing values |
+| Area | `"area"` | Lines with translucent filled areas |
+| Scatter | `"scatter"` | Numeric or date X against numeric Y |
+| Histogram | `"histogram"` | Automatic or configured bins of one value field |
+| Radar | `"radar"` | Category spokes with one polygon per series |
 | Pie | `"pie"` | Share of total, legend shown by default |
 | Doughnut | `"doughnut"` | Pie with an inner radius and centre total |
 
-All charts are SVG-based, responsive to their container width, and styled with
-shared design tokens.
+All charts are SVG-based, responsive, and styled with shared design tokens.
+
+## Multi-series data
+
+```ts
+createChart({
+  type: "grouped-bar",
+  data: [
+    { month: "Jan", revenue: 32000, expenses: 21000 },
+    { month: "Feb", revenue: 41000, expenses: 24000 },
+    { month: "Mar", revenue: 38500, expenses: 22500 }
+  ],
+  x: "month",
+  y: "revenue",
+  series: [
+    { field: "revenue", label: "Revenue", color: "#6366F1" },
+    { field: "expenses", label: "Expenses", color: "#F59E0B" }
+  ],
+  legend: { position: "top" }
+});
+```
+
+When `series` is omitted, Numviz creates one series from `y`. Line, area,
+scatter, radar, bar, grouped-bar and stacked-bar support multiple series.
 
 ## Data formats
 
@@ -150,24 +181,84 @@ the chart renders an empty state.
 
 | Option | Type | Description |
 | --- | --- | --- |
-| `type` | `"bar" \| "line" \| "pie" \| "doughnut"` | Required chart type |
+| `type` | `ChartType` | Required chart type |
 | `data` | `DataInput` | Required input data |
-| `x` | `string` | Category field (alias: `category`) |
+| `x` | `string` | Category / X field (alias: `category`) |
 | `y` | `string` | Numeric value field (alias: `value`) |
+| `series` | `SeriesConfig[]` | Series definitions with `field`, `label`, `color` |
 | `columns` | `ColumnInput[]` | Column definitions for array-of-arrays data |
 | `title` / `subtitle` | `string` | Header text rendered inside the chart |
-| `width` / `height` | `number` | ViewBox size in pixels (defaults: 720 × 380) |
+| `width` / `height` | `number` | ViewBox size (default: container width × 380) |
 | `palette` | `string[]` | Series/pie colours (defaults follow the theme) |
 | `background` | `string` | Chart background colour override |
-| `legend` | `boolean \| { show, position }` | `position`: `top`, `right`, `bottom`, `left` |
-| `labels` | `boolean \| { show, formatter }` | Data labels on marks |
+| `legend` | `boolean \| { show, position, interactive }` | `position`: `top`, `right`, `bottom`, `left` |
+| `labels` | `boolean \| { show, position, formatter }` | `position`: `auto`, `inside`, `outside` |
 | `tooltip` | `boolean \| { show, formatter }` | Hover, focus and touch tooltips |
 | `margin` | `number \| Partial<MarginConfig>` | Plot margins |
 | `theme` | `ThemeConfig` | Design token overrides |
+| `xAxis` / `yAxis` | `AxisConfig` | Titles, ticks, grid, rotation, bounds |
+| `bins` | `number` | Histogram bin count (1–200) |
+| `responsive` | `boolean` | Follow container width (default `true`) |
+| `animation` | `boolean \| { enabled, duration }` | Mark fade-in, reduced-motion aware |
+| `onClick` | `(event) => void` | Click and keyboard activation on marks |
 | `ariaLabel` | `string` | Accessible name for the SVG |
 
-`formatter` for labels receives `(value, label)`; the tooltip formatter receives
-`(value, { label, field, index })`.
+### Axis configuration
+
+```ts
+createChart({
+  type: "bar",
+  data,
+  x: "month",
+  y: "revenue",
+  xAxis: {
+    title: "Month",
+    rotate: 45,
+    grid: false,
+    tickFormat: (value) => String(value).toUpperCase()
+  },
+  yAxis: {
+    title: "Revenue",
+    min: 0,
+    max: 100000,
+    grid: true,
+    tickFormat: (value) => `$${Number(value).toLocaleString()}`
+  }
+});
+```
+
+Axes support `title`, `show`, `grid`, `rotate` (−90 to 90), `tickFormat`,
+`min` and `max`. Category axes ignore `min`/`max`.
+
+## Interactions
+
+- Tooltips follow the pointer, keyboard focus and touch.
+- Hovering or focusing a mark highlights its category or series and dims the rest.
+- Legends toggle series visibility by click, Enter or Space.
+- `chart.setSeriesVisible(index, visible)` mirrors legend behaviour from code.
+- `onClick` receives `{ type, label, field, series, value, index, originalEvent }`.
+
+```ts
+createChart({
+  type: "grouped-bar",
+  data,
+  x: "month",
+  y: "revenue",
+  series: [
+    { field: "revenue", label: "Revenue" },
+    { field: "expenses", label: "Expenses" }
+  ],
+  onClick: ({ label, series, value }) => {
+    console.log(`${series} for ${label}: ${value}`);
+  }
+});
+```
+
+## Responsive layout
+
+When `width` is omitted and `responsive` is true (the default), Numviz measures
+the render container, uses that width, and re-renders when the container
+resizes. Set an explicit `width` to opt out of measured layout.
 
 ## Theming
 
@@ -197,22 +288,27 @@ chart they are passed to.
 
 Every chart root exposes CSS custom properties (`--nv-background`,
 `--nv-surface`, `--nv-text`, `--nv-muted-text`, `--nv-border`, `--nv-grid`,
-`--nv-accent`, `--nv-font-family`, `--nv-radius`, semantic state colours) and
-documented class names:
+`--nv-accent`, `--nv-font-family`, `--nv-radius`, `--nv-animation-duration`,
+semantic state colours) and documented class names:
 
 - `.numviz-root` — chart container
 - `.numviz-chart__svg` — SVG element
 - `.numviz-chart__title`, `.numviz-chart__subtitle`
 - `.numviz-chart__tick-label`, `.numviz-chart__axis-line`, `.numviz-chart__grid-line`
-- `.numviz-chart__mark`, `.numviz-chart__value-label`
+- `.numviz-chart__axis-title`
+- `.numviz-chart__mark`, `.numviz-chart__mark--dimmed`, `.numviz-chart__value-label`
 - `.numviz-legend`, `.numviz-legend__item`, `.numviz-legend__swatch`
 - `.numviz-tooltip`, `.numviz-tooltip__label`, `.numviz-tooltip__value`
+
+Marks accept `data-numviz-part`, `data-index` and `data-series` attributes for
+custom tooling and tests.
 
 ## Accessibility
 
 Charts render `role="img"` SVGs with an accessible name and description. Marks
-are focusable, expose `aria-label` values, and show the same tooltip on keyboard
-focus. Motion respects `prefers-reduced-motion`.
+are focusable, expose `aria-label` values, activate with Enter or Space, and
+show the same tooltip on keyboard focus. Legend items expose `aria-pressed`.
+Motion respects `prefers-reduced-motion` and can be disabled.
 
 ## Errors
 
@@ -230,7 +326,7 @@ Errors are `NumvizError` instances with a `code` and optional `path`.
 
 ## Examples
 
-The `examples/` folder contains framework-free HTML pages for each chart type
+The `examples/` folder contains framework-free HTML pages for every chart type
 and data format:
 
 ```bash
@@ -252,15 +348,13 @@ npm run verify      # typecheck, lint, tests, build, consumer import test
 
 The consumer test packs the package, installs it into a temporary project and
 verifies default imports, named imports, namespace imports, runtime behaviour
-and declaration resolution.
+and declaration resolution under the published package name.
 
-## Roadmap
+## Release history
 
-The release roadmap lives in
-[`numviz-development-roadmap-and-release-prompts-updated.md`](./numviz-development-roadmap-and-release-prompts-updated.md).
-`0.1.0` covers the core foundation; advanced charts, tables, metrics,
-dashboards, framework adapters, themes, standalone export and reporting follow in
-later releases.
+See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: tables,
+metrics, dashboards, framework adapters, the complete theme engine, standalone
+export and reporting arrive before `1.0.0`.
 
 ## License
 
