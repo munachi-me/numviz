@@ -1,6 +1,6 @@
 {
   "name": "@munachi-me/numviz",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Framework-independent JavaScript visualization, table and dashboard platform",
   "keywords": [
     "charts",
@@ -69,5 +69,16 @@
     "react": {
       "optional": true
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/munachi-me/numviz.git"
+  },
+  "homepage": "https://github.com/munachi-me/numviz#readme",
+  "bugs": {
+    "url": "https://github.com/munachi-me/numviz/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

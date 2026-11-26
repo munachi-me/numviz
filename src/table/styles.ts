@@ -15,7 +15,11 @@ export const TABLE_CSS = `
 .numviz-table__control:focus-visible { outline: 2px solid var(--nv-accent); outline-offset: 1px; }
 .numviz-table__control:disabled { opacity: 0.45; cursor: not-allowed; }
 .numviz-table__viewport { position: relative; overflow: auto; border: 1px solid var(--nv-border); background: var(--nv-surface); }
-.numviz-table__table { width: 100%; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.numviz-table--responsive .numviz-table__viewport { overflow-x: auto; }
+.numviz-table--responsive .numviz-table__table { width: 100%; min-width: 100%; }
+.numviz-table--fixed .numviz-table__viewport { overflow-x: visible; overflow-y: auto; }
+.numviz-table--fixed .numviz-table__table { width: auto; min-width: 0; }
+.numviz-table__table { border-collapse: separate; border-spacing: 0; font-size: 13px; }
 .numviz-table__caption { caption-side: top; }
 .numviz-table thead th { padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--nv-muted-text); background: var(--nv-surface-elevated); border-bottom: 1px solid var(--nv-border); white-space: nowrap; }
 .numviz-table--sticky-header thead th { position: sticky; top: 0; z-index: 2; }

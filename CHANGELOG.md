@@ -2,6 +2,43 @@
 
 All notable changes to Numviz are documented in this file.
 
+## [0.3.1] - 2026-11-26
+
+### Fixed
+
+- Tables with `pagination: false` now render every filtered and sorted row
+  instead of only the first `pageSize` rows. `pageCount` stays at 1 in this mode.
+- Search, sorting, row numbering, selection, select-all and status counts now
+  behave consistently with pagination enabled and disabled.
+- Page state clamps to a valid page when data shrinks or a search narrows the
+  result set; `setPage`, `setData`, `setSearch` and `update` cannot leave the
+  table on an empty page.
+- Table cell renderers recognise DOM nodes across documents. Renderer nodes
+  created inside an iframe are appended correctly instead of relying on the
+  global `Node` constructor.
+- `package-lock.json` is synchronized with `package.json`; the root package
+  entry, version and dependency metadata now match, and `npm ci` succeeds from
+  a clean install.
+
+### Changed
+
+- `responsive` now has a documented effect: `true` (default) stretches the
+  table to its container and scrolls horizontally when content is wider;
+  `false` sizes the table to its content without horizontal scrolling.
+- `ThemeConfig` accepts `surfaceElevated`, `positive`, `warning`, `danger` and
+  `info`, alongside the existing surface, text, border and accent tokens.
+  Defaults, validation, CSS variables, charts and tables stay aligned.
+- Historical changelog references use the official scoped package name.
+
+### Added
+
+- Regression tests for pagination enabled and disabled with datasets larger
+  than ten rows, page clamping, per-page select-all, iframe renderer nodes,
+  responsive/fixed table classes and extended theme tokens.
+- Automated package consistency tests covering package name, version,
+  lockfile metadata, current-version documentation and forbidden unscoped
+  import paths.
+
 ## [0.3.0] - 2026-11-26
 
 ### Added
@@ -108,8 +145,9 @@ All notable changes to Numviz are documented in this file.
 ### Added
 
 - TypeScript package with strict configuration, ESM output and generated declarations.
-- Dual public API: `import Numviz from "numviz"` and named imports such as
-  `import { createChart } from "numviz"` share one implementation.
+- Dual public API: default and named imports from `@munachi-me/numviz` share
+  one implementation. (The package was published unscoped at the time and was
+  scoped as `@munachi-me/numviz` in 0.2.0.)
 - `createChart()` with validation and helpful `NumvizError` codes.
 - Data normalization for arrays of objects, arrays of arrays with column
   definitions, and Numiq-compatible `{ columns, rows }` / `{ columns, data }` datasets.

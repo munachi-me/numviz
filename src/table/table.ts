@@ -6,6 +6,7 @@ import {
   ensureStyles,
   getDocument,
   getWindow,
+  isDomNode,
   resolveContainer
 } from "../utils/dom.js";
 import { requireNonEmptyString } from "../utils/validate.js";
@@ -276,7 +277,7 @@ class NumvizTable implements Table {
 
   getState(): TableState {
     const filteredRowCount = this.#filteredRows().length;
-    const pageCount = Math.max(1, Math.ceil(filteredRowCount / this.#config.pageSize));
+    const pageCount = this.#pageCount(filteredRowCount);
     return {
       sort: this.#sort,
       page: Math.min(this.#page, pageCount),
@@ -368,6 +369,7 @@ class NumvizTable implements Table {
     const classes = ["numviz-root", "numviz-table", `numviz-table--${config.variant}`];
     if (config.striped) classes.push("numviz-table--striped");
     if (config.stickyHeader) classes.push("numviz-table--sticky-header");
+    classes.push(config.responsive ? "numviz-table--responsive" : "numviz-table--fixed");
     if (config.className) classes.push(config.className);
     root.className = classes.join(" ");
     root.dataset.numvizRoot = "table";
@@ -611,7 +613,7 @@ class NumvizTable implements Table {
     const tbody = this.#tbody;
     if (!tbody || !this.#root) return;
     const sorted = this.#sortedRows();
-    const pageCount = Math.max(1, Math.ceil(sorted.length / this.#config.pageSize));
+    const pageCount = this.#pageCount(sorted.length);
     this.#page = Math.min(Math.max(1, this.#page), pageCount);
     const pageRows = this.#pageRows();
     this.#renderBody(pageRows, sorted.length, pageCount);
@@ -634,9 +636,16 @@ class NumvizTable implements Table {
     this.#config.onSortChange?.(this.#sort);
   }
 
+  #pageCount(filteredCount: number): number {
+    return this.#config.pagination
+      ? Math.max(1, Math.ceil(filteredCount / this.#config.pageSize))
+      : 1;
+  }
+
   #pageRows(): SortableRow[] {
     const sorted = this.#sortedRows();
-    const pageCount = Math.max(1, Math.ceil(sorted.length / this.#config.pageSize));
+    if (!this.#config.pagination) return sorted;
+    const pageCount = this.#pageCount(sorted.length);
     const page = Math.min(Math.max(1, this.#page), pageCount);
     const start = (page - 1) * this.#config.pageSize;
     return sorted.slice(start, start + this.#config.pageSize);
@@ -716,7 +725,9 @@ class NumvizTable implements Table {
       return;
     }
 
-    const pageStart = (this.#page - 1) * this.#config.pageSize;
+    const pageStart = this.#config.pagination
+      ? (this.#page - 1) * this.#config.pageSize
+      : 0;
     pageRows.forEach((entry, position) => {
       const { row, index } = entry;
       const tr = doc.createElement("tr");
@@ -750,7 +761,7 @@ class NumvizTable implements Table {
         td.style.textAlign = column.align;
         if (column.render) {
           const rendered = column.render(row, { rowIndex: index, row, column });
-          if (rendered instanceof Node) td.appendChild(rendered);
+          if (isDomNode(rendered)) td.appendChild(rendered);
           else if (rendered !== null && rendered !== undefined) {
             td.textContent = String(rendered);
           }

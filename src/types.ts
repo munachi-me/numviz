@@ -82,10 +82,15 @@ export interface ThemeConfig {
   chartPalette?: readonly string[];
   background?: string;
   surface?: string;
+  surfaceElevated?: string;
   text?: string;
   mutedText?: string;
   border?: string;
   grid?: string;
+  positive?: string;
+  warning?: string;
+  danger?: string;
+  info?: string;
 }
 
 /** Context passed to tooltip formatters. */

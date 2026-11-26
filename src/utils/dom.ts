@@ -207,3 +207,13 @@ export function svgElement<K extends keyof SVGElementTagNameMap>(
 export function isElement(value: unknown): value is Element {
   return typeof value === "object" && value !== null && "nodeType" in value && (value as Element).nodeType === 1;
 }
+
+/** Cross-realm DOM node check; `instanceof Node` fails across iframe realms. */
+export function isDomNode(value: unknown): value is Node {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "nodeType" in value &&
+    typeof (value as { nodeType?: unknown }).nodeType === "number"
+  );
+}

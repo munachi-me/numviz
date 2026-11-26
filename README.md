@@ -5,9 +5,9 @@ renders charts and HTML data tables from ordinary JavaScript data — no React,
 Next.js, Numiq, or CSS framework required. React is optional and available from a
 separate subpath.
 
-**Current release:** `0.3.0` — the HTML data table engine, on top of the 0.2.x
-charts, multi-series data, axis control, legend interactions and responsive
-layout.
+**Current release:** `0.3.1` — table pagination fixes, package synchronization
+and theme flexibility on top of the 0.3.0 HTML table engine and the 0.2.x chart
+foundation.
 
 Published on npm as **`@munachi-me/numviz`**.
 
@@ -130,6 +130,9 @@ search.
   states, selection, and conditional formatting without replacing the renderer.
 - **Variants**: `minimal`, `striped`, `bordered`, `compact` and `dashboard`,
   with light, dark and system themes.
+- **Responsive or fixed**: responsive tables stretch to the container and
+  scroll horizontally when content is wider; `responsive: false` sizes the
+  table to its content and leaves horizontal space to the container.
 - **State methods**: `setData`, `setLoading`, `setError`, `setSort`, `setPage`,
   `setSearch`, `setSelection`, `getSelectedRows`, `getState` and `destroy`.
 - **Accessibility**: native `table`/`thead`/`tbody`/`th`/`td`, caption, `scope`,
@@ -375,6 +378,11 @@ createChart({
   theme: {
     mode: "dark",
     accent: "#22D3EE",
+    surfaceElevated: "#152033",
+    positive: "#34D399",
+    warning: "#FBBF24",
+    danger: "#F87171",
+    info: "#38BDF8",
     fontFamily: "Inter, sans-serif",
     borderRadius: 8,
     chartPalette: ["#22D3EE", "#A78BFA", "#34D399"]
@@ -382,8 +390,11 @@ createChart({
 });
 ```
 
+All documented tokens are configurable: `background`, `surface`,
+`surfaceElevated`, `text`, `mutedText`, `border`, `grid`, `accent`, `positive`,
+`warning`, `danger`, `info`, `fontFamily`, `borderRadius` and `chartPalette`.
 Theme configuration merges over the built-in tokens. Overrides affect only the
-chart they are passed to.
+chart or table they are passed to.
 
 ## Styling hooks
 
@@ -402,6 +413,7 @@ semantic state colours) and documented class names:
 - `.numviz-tooltip`, `.numviz-tooltip__label`, `.numviz-tooltip__value`
 - `.numviz-table`, `.numviz-table--minimal`, `.numviz-table--striped`,
   `.numviz-table--bordered`, `.numviz-table--compact`, `.numviz-table--dashboard`
+- `.numviz-table--responsive`, `.numviz-table--fixed`
 - `.numviz-table__toolbar`, `.numviz-table__viewport`, `.numviz-table__table`
 - `.numviz-table__sort`, `.numviz-table__sort-indicator`
 - `.numviz-table__row`, `.numviz-table__row--selected`, `.numviz-table__selection`
@@ -469,9 +481,9 @@ and declaration resolution under the published package name.
 
 ## Release history
 
-See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: `0.3.0`
-adds tables; metrics, dashboards, framework adapters, the complete theme engine,
-standalone export and reporting arrive before `1.0.0`.
+See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: `0.3.x`
+adds tables and stabilization; metrics, dashboards, framework adapters, the
+complete theme engine, standalone export and reporting arrive before `1.0.0`.
 
 ## License
 
