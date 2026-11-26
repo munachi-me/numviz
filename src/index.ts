@@ -1,5 +1,6 @@
 import { createChart } from "./charts/createChart.js";
 import { isNumvizError, NumvizError } from "./errors.js";
+import { createTable } from "./table/table.js";
 import { VERSION } from "./version.js";
 
 /**
@@ -8,11 +9,12 @@ import { VERSION } from "./version.js";
  */
 const Numviz = Object.freeze({
   createChart,
+  createTable,
   version: VERSION,
   NumvizError
 });
 
-export { createChart };
+export { createChart, createTable };
 export { NumvizError, isNumvizError };
 export { VERSION as version };
 export default Numviz;
@@ -53,4 +55,22 @@ export type {
   TooltipContext,
   ValueFormatter
 } from "./types.js";
+export type {
+  ResolvedTableColumn,
+  ResolvedTableConfig,
+  Table,
+  TableAlign,
+  TableCellContext,
+  TableCellRenderer,
+  TableColumnConfig,
+  TableConfig,
+  TableData,
+  TableFormatPreset,
+  TableFormatter,
+  TableRow,
+  TableSortDirection,
+  TableSortState,
+  TableState,
+  TableVariant
+} from "./table/types.js";
 export type { NumvizErrorCode, NumvizErrorOptions } from "./errors.js";

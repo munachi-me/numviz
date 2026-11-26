@@ -1,12 +1,13 @@
 # Numviz
 
 Framework-independent JavaScript visualization and dashboard platform. Numviz
-renders charts from ordinary JavaScript data — no React, Next.js, Numiq, or CSS
-framework required.
+renders charts and HTML data tables from ordinary JavaScript data — no React,
+Next.js, Numiq, or CSS framework required. React is optional and available from a
+separate subpath.
 
-**Current release:** `0.2.1` — audit fixes and stabilization on top of the 0.2.0
-advanced charts, multi-series data, axis control, legend interactions and
-responsive layout.
+**Current release:** `0.3.0` — the HTML data table engine, on top of the 0.2.x
+charts, multi-series data, axis control, legend interactions and responsive
+layout.
 
 Published on npm as **`@munachi-me/numviz`**.
 
@@ -84,6 +85,78 @@ chart.render(document.querySelector("#chart"));
 | Doughnut | `"doughnut"` | Pie with an inner radius and centre total |
 
 All charts are SVG-based, responsive, and styled with shared design tokens.
+
+## Data tables
+
+`createTable` renders a real, accessible HTML table with sorting, searching,
+pagination, row selection, derived columns and number/date formatting. Only the
+visible page is rendered, so large datasets stay fast.
+
+```ts
+import { createTable } from "@munachi-me/numviz";
+
+const table = createTable({
+  data: employees,
+  title: "Employees",
+  sortable: true,
+  searchable: true,
+  pagination: true,
+  pageSize: 10,
+  rowNumbers: true,
+  selectable: true,
+  variant: "dashboard",
+  columns: [
+    { field: "name", label: "Employee", width: 220 },
+    { field: "department", label: "Department" },
+    { field: "salary", label: "Salary", format: "currency", currency: "USD" },
+    { label: "Status", render: (row) => (row.active ? "Active" : "Inactive") },
+    { field: "joined", label: "Joined", format: "date" }
+  ],
+  onSelectionChange: (indices) => console.log(indices)
+});
+
+table.render("#table");
+```
+
+Column options include `label`, `visible`, `width`, `align`, `format`
+(`"text"`, `"number"`, `"currency"`, `"percent"`, `"date"` or a function),
+`formatOptions`, `currency`, `render(row, context)`, `value(row)`, `sortable`,
+`searchable` and custom classes. Columns without a `field` are computed display
+columns; pair `render` with `value` when a computed column must also sort or
+search.
+
+- **Features**: automatic detection, column order/visibility/width, sorting,
+  search, pagination with page-size selection, row numbering, empty/loading/error
+  states, selection, and conditional formatting without replacing the renderer.
+- **Variants**: `minimal`, `striped`, `bordered`, `compact` and `dashboard`,
+  with light, dark and system themes.
+- **State methods**: `setData`, `setLoading`, `setError`, `setSort`, `setPage`,
+  `setSearch`, `setSelection`, `getSelectedRows`, `getState` and `destroy`.
+- **Accessibility**: native `table`/`thead`/`tbody`/`th`/`td`, caption, `scope`,
+  `aria-sort`, `aria-selected`, `aria-busy`, labelled controls and live status.
+- **Safety**: string values and custom renderer strings are inserted as text,
+  never as HTML. Return a DOM node from `render` when you need markup.
+
+See [docs/api.md](./docs/api.md#tables) for the complete table API.
+
+## React and Next.js
+
+React support is optional and lives at `@munachi-me/numviz/react`. Install React
+alongside Numviz, then use the typed `DataTable` component. The core package
+never imports React.
+
+```tsx
+import { DataTable } from "@munachi-me/numviz/react";
+
+export function Employees() {
+  return <DataTable data={employees} searchable pagination selectable={false} />;
+}
+```
+
+`sort`, `page`, `search` and `selectedRows` can be supplied for controlled
+state, with the matching `onSortChange`, `onPageChange`, `onSearchChange` and
+`onSelectionChange` callbacks. See [docs/frameworks.md](./docs/frameworks.md)
+for Next.js client boundaries, server rendering and controlled examples.
 
 ## Multi-series data
 
@@ -327,6 +400,15 @@ semantic state colours) and documented class names:
 - `.numviz-chart__mark`, `.numviz-chart__mark--dimmed`, `.numviz-chart__value-label`
 - `.numviz-legend`, `.numviz-legend__item`, `.numviz-legend__swatch`
 - `.numviz-tooltip`, `.numviz-tooltip__label`, `.numviz-tooltip__value`
+- `.numviz-table`, `.numviz-table--minimal`, `.numviz-table--striped`,
+  `.numviz-table--bordered`, `.numviz-table--compact`, `.numviz-table--dashboard`
+- `.numviz-table__toolbar`, `.numviz-table__viewport`, `.numviz-table__table`
+- `.numviz-table__sort`, `.numviz-table__sort-indicator`
+- `.numviz-table__row`, `.numviz-table__row--selected`, `.numviz-table__selection`
+- `.numviz-table__empty`, `.numviz-table__loading`, `.numviz-table__error`
+- `.numviz-table__footer`, `.numviz-table__pagination`, `.numviz-table__status`
+
+Tables use the same `--nv-*` custom properties as charts.
 
 Marks accept `data-numviz-part`, `data-index` and `data-series` attributes for
 custom tooling and tests.
@@ -336,7 +418,11 @@ custom tooling and tests.
 Charts render `role="img"` SVGs with an accessible name and description. Marks
 are focusable, expose `aria-label` values, activate with Enter or Space, and
 show the same tooltip on keyboard focus. Legend items expose `aria-pressed`.
-Motion respects `prefers-reduced-motion` and can be disabled.
+
+Tables use native table semantics with a visually hidden caption, `scope="col"`
+headers, `aria-sort` state, `aria-selected` rows, `aria-busy` while loading,
+labelled search/page controls and a polite live status region. Motion respects
+`prefers-reduced-motion` and can be disabled.
 
 ## Errors
 
@@ -355,7 +441,8 @@ Errors are `NumvizError` instances with a `code` and optional `path`.
 ## Examples
 
 The `examples/` folder contains framework-free HTML pages for every chart type
-and data format:
+and for the table engine (`table.html`, `table-themes.html`), plus data format
+examples:
 
 ```bash
 npm install
@@ -382,9 +469,9 @@ and declaration resolution under the published package name.
 
 ## Release history
 
-See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: tables,
-metrics, dashboards, framework adapters, the complete theme engine, standalone
-export and reporting arrive before `1.0.0`.
+See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: `0.3.0`
+adds tables; metrics, dashboards, framework adapters, the complete theme engine,
+standalone export and reporting arrive before `1.0.0`.
 
 ## License
 

@@ -47,10 +47,15 @@ try {
 
   writeFileSync(
     path.join(fixture, "runtime-check.mjs"),
-    `import Numviz, { createChart, version, NumvizError } from "${packageName}";
+    `import { createRequire } from "node:module";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import Numviz, { createChart, createTable, version, NumvizError } from "${packageName}";
 import * as named from "${packageName}";
 
 if (Numviz.createChart !== createChart) throw new Error("default and named createChart differ");
+if (Numviz.createTable !== createTable) throw new Error("default and named createTable differ");
+if (named.createTable !== Numviz.createTable) throw new Error("namespace createTable differs");
 if (named.createChart !== Numviz.createChart) throw new Error("namespace import differs");
 if (named.default !== Numviz) throw new Error("namespace default export differs");
 if (Numviz.version !== version) throw new Error("default and named version differ");
@@ -85,7 +90,33 @@ try {
 }
 if (!domError || domError.code !== "NO_DOM") throw new Error("rendering outside a DOM should fail with NO_DOM");
 
-console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "no-dom"] }));
+const table = createTable({
+  data: [{ region: "North", revenue: 10 }],
+  columns: [{ field: "region", label: "Region" }, { field: "revenue", format: "currency" }],
+  searchable: true,
+  pagination: true
+});
+if (table.config.columns.length !== 2) throw new Error("table columns were not resolved");
+let tableDomError;
+try {
+  table.render("#table");
+} catch (error) {
+  tableDomError = error;
+}
+if (!tableDomError || tableDomError.code !== "NO_DOM") throw new Error("table rendering should fail with NO_DOM outside a DOM");
+
+const require = createRequire(import.meta.url);
+const packageJsonPath = require.resolve("${packageName}/package.json");
+const manifest = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+if (!manifest.exports || !manifest.exports["./react"]) throw new Error("missing ./react export");
+const reactEntry = path.join(path.dirname(packageJsonPath), "dist", "react", "index.js");
+if (!existsSync(reactEntry)) throw new Error("missing built React entry");
+if (!readFileSync(reactEntry, "utf8").trimStart().startsWith('"use client"')) {
+  throw new Error("React entry is missing the use client directive");
+}
+if (!manifest.peerDependencies || !manifest.peerDependencies.react) throw new Error("react should be an optional peer dependency");
+
+console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "no-dom", "table", "react-entry"] }));
 `
   );
   const runtimeOutput = run(process.execPath, ["runtime-check.mjs"], { cwd: fixture }).trim();
@@ -93,7 +124,13 @@ console.log(JSON.stringify({ version, checked: ["default", "named", "namespace",
 
   writeFileSync(
     path.join(fixture, "consumer.ts"),
-    `import Numviz, { createChart, NumvizError, type ChartConfig } from "${packageName}";
+    `import Numviz, {
+  createChart,
+  createTable,
+  NumvizError,
+  type ChartConfig,
+  type TableConfig
+} from "${packageName}";
 
 const config: ChartConfig = {
   type: "bar",
@@ -107,6 +144,17 @@ const namedChart = createChart(config);
 const namespaceChart = Numviz.createChart(config);
 namedChart.render(document.body);
 namespaceChart.destroy();
+
+const tableConfig: TableConfig = {
+  data: [{ name: "Ada", salary: 120000 }],
+  columns: [{ field: "name" }, { field: "salary", format: "currency" }],
+  searchable: true,
+  pagination: true
+};
+const table = createTable(tableConfig);
+const namespaceTable = Numviz.createTable(tableConfig);
+namespaceTable.destroy();
+table.getState();
 
 const error: NumvizError = new NumvizError("example", { code: "INVALID_CONFIG" });
 console.log(error.code, Numviz.version);

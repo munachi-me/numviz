@@ -2,6 +2,46 @@
 
 All notable changes to Numviz are documented in this file.
 
+## [0.3.0] - 2026-11-26
+
+### Added
+
+- HTML table engine: `createTable` renders a native, accessible `table` with
+  automatic or configured columns, sorting, searching, pagination with
+  page-size selection, row numbering, row selection, number/date formatting,
+  custom formatters and renderers, and derived conditional columns.
+- Table states and theming: minimal, striped, bordered, compact and dashboard
+  variants, light/dark/system themes, sticky headers, max-height scrolling, and
+  customizable empty, no-results, loading and error states.
+- Table lifecycle API: `setData`, `setLoading`, `setError`, `setSort`,
+  `setPage`, `setSearch`, `setSelection`, `getSelectedRows`, `getState`,
+  `update` and `destroy`.
+- Optional React entry `@munachi-me/numviz/react` with a typed `DataTable`
+  component, uncontrolled and controlled state, callbacks and an imperative
+  ref handle. React is an optional peer dependency (`>=18`).
+- Next.js documentation covering the `"use client"` boundary, App Router and
+  Pages Router usage, dynamic imports and server-rendering behaviour.
+- Table examples (`examples/table.html`, `examples/table-themes.html`),
+  table API documentation and React tests.
+
+### Changed
+
+- The default namespace now contains `createTable` alongside `createChart`,
+  `version` and `NumvizError`.
+- Table output renders only the current page, so large datasets never create a
+  DOM row per record.
+- String values and string renderer results are inserted as text, never HTML;
+  renderers can return DOM nodes when markup is required.
+
+### Verified
+
+- Vanilla table tests cover structure, formatting, sorting, searching,
+  pagination, states, derived columns, selection, themes, lifecycle, validation
+  and iframes.
+- React tests cover server rendering, mounting, controlled state, callbacks and
+  loading/error props.
+- The packaged consumer test verifies the table API and the `./react` subpath.
+
 ## [0.2.1] - 2026-11-26
 
 ### Added

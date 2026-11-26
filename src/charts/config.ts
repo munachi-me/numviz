@@ -9,9 +9,6 @@ import type {
   SeriesConfig
 } from "../types.js";
 import {
-  isPlainObject,
-  requireBoolean,
-  requireNonEmptyString,
   resolveAnimation,
   resolveAxis,
   resolveBins,
@@ -20,10 +17,11 @@ import {
   resolveLegend,
   resolveMargin,
   resolvePalette,
-  resolveThemeConfig,
   resolveTooltip,
   resolveWidth
 } from "./options.js";
+import { resolveThemeConfig } from "../theme/validate.js";
+import { isPlainObject, requireBoolean, requireNonEmptyString } from "../utils/validate.js";
 
 export const CHART_TYPES: readonly ChartType[] = [
   "bar",
