@@ -165,7 +165,7 @@ const revenue = createMetric({
 
 revenue.result.value; // 482000
 revenue.result.formattedValue; // "$482,000.00"
-revenue.result.comparison?.percentageChange; // 12.4
+revenue.result.comparison?.percentageChange; // 12.6
 revenue.result.state; // "positive"
 
 revenue.render("#revenue");
