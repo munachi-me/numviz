@@ -1,5 +1,13 @@
 import { NumvizError } from "../errors.js";
+import { resolveThemeConfig } from "../theme/validate.js";
 import { DEFAULT_PALETTE } from "../theme/tokens.js";
+import {
+  isPlainObject,
+  requireBoolean,
+  requireCallback,
+  requireNonEmptyString,
+  requirePositiveNumber
+} from "../utils/validate.js";
 import type {
   AnimationConfig,
   AxisConfig,
@@ -13,67 +21,18 @@ import type {
   ResolvedAxis,
   ResolvedChartConfig,
   ThemeConfig,
-  ThemeMode,
   TooltipConfig
 } from "../types.js";
 
+export { resolveThemeConfig };
+
 const LEGEND_POSITIONS: readonly LegendPosition[] = ["top", "bottom", "left", "right"];
 const LABEL_POSITIONS: readonly LabelPosition[] = ["auto", "inside", "outside"];
-const THEME_MODES: readonly ThemeMode[] = ["light", "dark", "system"];
 const ARC_TYPES: readonly ChartType[] = ["pie", "doughnut"];
 
 const DEFAULT_MARGIN: MarginConfig = { top: 16, right: 20, bottom: 44, left: 56 };
 const DEFAULT_WIDTH = 720;
 const DEFAULT_HEIGHT = 380;
-
-export function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-export function requirePositiveNumber(value: unknown, path: string, fallback: number): number {
-  if (value === undefined) return fallback;
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-    throw new NumvizError(`\`${path}\` must be a positive finite number.`, {
-      code: "INVALID_CONFIG",
-      path,
-      details: { received: value }
-    });
-  }
-  return value;
-}
-
-export function requireNonEmptyString(value: unknown, path: string): string {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new NumvizError(`\`${path}\` must be a non-empty string.`, {
-      code: "INVALID_CONFIG",
-      path,
-      details: { received: value }
-    });
-  }
-  return value;
-}
-
-export function requireBoolean(value: unknown, path: string): boolean {
-  if (typeof value !== "boolean") {
-    throw new NumvizError(`\`${path}\` must be a boolean.`, {
-      code: "INVALID_CONFIG",
-      path,
-      details: { received: value }
-    });
-  }
-  return value;
-}
-
-export function requireCallback(value: unknown, path: string): (...args: never[]) => unknown {
-  if (typeof value !== "function") {
-    throw new NumvizError(`\`${path}\` must be a function.`, {
-      code: "INVALID_CONFIG",
-      path,
-      details: { received: typeof value }
-    });
-  }
-  return value as (...args: never[]) => unknown;
-}
 
 export function resolveWidth(config: ChartConfig): number {
   return requirePositiveNumber(config.width, "width", DEFAULT_WIDTH);
@@ -132,58 +91,6 @@ export function resolveMargin(margin: ChartConfig["margin"]): MarginConfig {
     resolved[side] = value;
   }
   return resolved;
-}
-
-export function resolveThemeConfig(input: ChartConfig["theme"]): ThemeConfig {
-  if (input === undefined) return {};
-  if (!isPlainObject(input)) {
-    throw new NumvizError("`theme` must be an object.", { code: "INVALID_CONFIG", path: "theme" });
-  }
-  const theme = input as ThemeConfig;
-  if (theme.mode !== undefined && !THEME_MODES.includes(theme.mode)) {
-    throw new NumvizError(`\`theme.mode\` must be one of: ${THEME_MODES.join(", ")}.`, {
-      code: "INVALID_CONFIG",
-      path: "theme.mode",
-      details: { received: theme.mode }
-    });
-  }
-  if (
-    theme.borderRadius !== undefined &&
-    (typeof theme.borderRadius !== "number" ||
-      !Number.isFinite(theme.borderRadius) ||
-      theme.borderRadius < 0)
-  ) {
-    throw new NumvizError("`theme.borderRadius` must be a non-negative finite number.", {
-      code: "INVALID_CONFIG",
-      path: "theme.borderRadius",
-      details: { received: theme.borderRadius }
-    });
-  }
-  for (const field of [
-    "accent",
-    "fontFamily",
-    "background",
-    "surface",
-    "text",
-    "mutedText",
-    "border",
-    "grid"
-  ] as const) {
-    const value = theme[field];
-    if (value !== undefined) requireNonEmptyString(value, `theme.${field}`);
-  }
-  if (theme.chartPalette !== undefined) {
-    if (!Array.isArray(theme.chartPalette) || theme.chartPalette.length === 0) {
-      throw new NumvizError("`theme.chartPalette` must be a non-empty array of colours.", {
-        code: "INVALID_CONFIG",
-        path: "theme.chartPalette"
-      });
-    }
-    theme.chartPalette.forEach((color, index) => {
-      requireNonEmptyString(color, `theme.chartPalette[${index}]`);
-    });
-  }
-  return { ...theme };
 }
 
 export function resolveLegend(

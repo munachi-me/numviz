@@ -1,3 +1,5 @@
+import type { Table, TableConfig } from "./table/types.js";
+
 /**
  * Public type definitions for Numviz.
  */
@@ -291,6 +293,7 @@ export interface Chart {
 /** Shape of the default `Numviz` namespace export. */
 export interface NumvizNamespace {
   readonly createChart: (config: ChartConfig) => Chart;
+  readonly createTable: (config: TableConfig) => Table;
   readonly version: string;
   readonly NumvizError: typeof NumvizErrorClass;
 }

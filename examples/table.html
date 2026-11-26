@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Data table</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main class="wide">
+      <a class="back" href="index.html">← All examples</a>
+      <div id="table"></div>
+      <p class="note">
+        Sortable, searchable and paginated HTML table. Select rows, change page
+        size, and try the status column.
+      </p>
+    </main>
+    <script type="module">
+      import { createTable } from "../dist/index.js";
+
+      const employees = [
+        { name: "Ada Lovelace", department: "Engineering", salary: 145000, active: true, joined: "2019-07-15" },
+        { name: "Grace Hopper", department: "Engineering", salary: 152000, active: true, joined: "2018-02-01" },
+        { name: "Alan Turing", department: "Research", salary: 138000, active: false, joined: "2021-01-10" },
+        { name: "Katherine Johnson", department: "Operations", salary: 121000, active: true, joined: "2020-11-05" },
+        { name: "Linus Torvalds", department: "Engineering", salary: 149000, active: true, joined: "2017-05-21" },
+        { name: "Margaret Hamilton", department: "Research", salary: 156000, active: true, joined: "2016-09-12" },
+        { name: "Tim Berners-Lee", department: "Research", salary: 141000, active: false, joined: "2015-03-30" },
+        { name: "Barbara Liskov", department: "Engineering", salary: 147000, active: true, joined: "2014-08-18" },
+        { name: "Donald Knuth", department: "Research", salary: 162000, active: true, joined: "2012-06-01" },
+        { name: "Radia Perlman", department: "Operations", salary: 129000, active: true, joined: "2019-10-22" },
+        { name: "Edsger Dijkstra", department: "Research", salary: 134000, active: false, joined: "2013-12-09" },
+        { name: "Anita Borg", department: "Engineering", salary: 137000, active: true, joined: "2020-04-14" }
+      ];
+
+      const table = createTable({
+        data: employees,
+        title: "Research and engineering staff",
+        variant: "dashboard",
+        searchable: true,
+        searchPlaceholder: "Search people or departments…",
+        sortable: true,
+        pagination: true,
+        pageSize: 6,
+        rowNumbers: true,
+        selectable: true,
+        columns: [
+          { field: "name", label: "Employee", width: 210 },
+          { field: "department", label: "Department" },
+          { field: "salary", label: "Salary", format: "currency", currency: "USD" },
+          {
+            label: "Status",
+            render: (row) => (row.active ? "Active" : "Inactive")
+          },
+          { field: "joined", label: "Joined", format: "date" }
+        ],
+        onSelectionChange: (indices) => {
+          document.querySelector("#selection").textContent =
+            indices.length === 0 ? "No rows selected" : `${indices.length} row(s) selected`;
+        }
+      });
+
+      table.render("#table");
+      const status = document.createElement("p");
+      status.id = "selection";
+      status.className = "note";
+      status.textContent = "No rows selected";
+      document.querySelector("#table").after(status);
+    </script>
+  </body>
+</html>

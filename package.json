@@ -1,14 +1,17 @@
 {
   "name": "@munachi-me/numviz",
-  "version": "0.2.1",
-  "description": "Framework-independent JavaScript visualization and dashboard platform",
+  "version": "0.3.0",
+  "description": "Framework-independent JavaScript visualization, table and dashboard platform",
   "keywords": [
-    "visualization",
     "charts",
     "dashboard",
+    "datatable",
+    "dataviz",
+    "react",
     "svg",
+    "table",
     "typescript",
-    "dataviz"
+    "visualization"
   ],
   "license": "MIT",
   "author": "munachi-me",
@@ -22,7 +25,12 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js",
+      "default": "./dist/react/index.js"
+    }
   },
   "files": [
     "dist",
@@ -44,10 +52,22 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
     "eslint": "^9.17.0",
     "jsdom": "^25.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.1",
     "vitest": "^2.1.8"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   }
 }

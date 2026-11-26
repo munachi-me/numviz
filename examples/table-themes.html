@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Table themes</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main class="wide">
+      <a class="back" href="index.html">← All examples</a>
+      <div id="striped"></div>
+      <div id="dark"></div>
+      <p class="note">
+        Built-in table variants: striped, bordered, compact and dashboard, with
+        light and dark theme tokens.
+      </p>
+    </main>
+    <script type="module">
+      import { createTable } from "../dist/index.js";
+
+      const rows = [
+        { region: "North", revenue: 128000, growth: 0.12 },
+        { region: "South", revenue: 97000, growth: -0.04 },
+        { region: "East", revenue: 143000, growth: 0.18 },
+        { region: "West", revenue: 112000, growth: 0.07 }
+      ];
+
+      const columns = [
+        { field: "region", label: "Region" },
+        { field: "revenue", label: "Revenue", format: "currency", currency: "USD" },
+        { field: "growth", label: "Growth", format: "percent" }
+      ];
+
+      createTable({
+        data: rows,
+        columns,
+        title: "Striped, bordered header",
+        variant: "striped",
+        rowNumbers: true
+      }).render("#striped");
+
+      createTable({
+        data: rows,
+        columns,
+        title: "Dark compact",
+        variant: "compact",
+        striped: true,
+        theme: { mode: "dark", accent: "#22D3EE", borderRadius: 8 }
+      }).render("#dark");
+    </script>
+  </body>
+</html>

@@ -152,13 +152,17 @@ const BASE_CSS = `
 }
 `;
 
-export function ensureBaseStyles(doc: Document): void {
-  if (doc.getElementById(STYLE_ID)) return;
+export function ensureStyles(doc: Document, id: string, css: string): void {
+  if (doc.getElementById(id)) return;
   const style = doc.createElement("style");
-  style.id = STYLE_ID;
-  style.textContent = BASE_CSS;
+  style.id = id;
+  style.textContent = css;
   const head = doc.head ?? doc.documentElement;
   head.prepend(style);
+}
+
+export function ensureBaseStyles(doc: Document): void {
+  ensureStyles(doc, STYLE_ID, BASE_CSS);
 }
 
 export function applyThemeTokens(element: HTMLElement, tokens: ThemeTokens): void {

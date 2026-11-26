@@ -1,14 +1,16 @@
-# Numviz API reference — 0.2.1
+# Numviz API reference — 0.3.0
 
 ## Entry points
 
 ```ts
 import Numviz from "@munachi-me/numviz";              // default namespace
-import { createChart } from "@munachi-me/numviz";     // named export
+import { createChart, createTable } from "@munachi-me/numviz";
+import { DataTable } from "@munachi-me/numviz/react"; // optional React entry
 ```
 
-Both resolve to the same implementation. The default namespace is frozen and
-contains `createChart`, `version` and `NumvizError`.
+The default namespace is frozen and contains `createChart`, `createTable`,
+`version` and `NumvizError`. The React subpath is a separate optional entry and
+is the only module that imports React.
 
 Type exports include `Chart`, `ChartConfig`, `ChartType`, `ChartClickEvent`,
 `DataInput`, `DataRecord`, `DataMatrixRow`, `DatasetLike`, `ColumnInput`,
@@ -17,8 +19,12 @@ Type exports include `Chart`, `ChartConfig`, `ChartType`, `ChartClickEvent`,
 `LabelPosition`, `LegendConfig`, `LegendPosition`, `TooltipConfig`,
 `TooltipContext`, `ValueFormatter`, `MarginConfig`, `NormalizedDataset`,
 `NormalizedRow`, `NormalizedColumn`, `NormalizedValue`, `ResolvedChartConfig`,
-`ThemeConfig`, `ThemeTokens`, `ThemeMode`, `NumvizErrorCode` and
-`NumvizErrorOptions`.
+`ThemeConfig`, `ThemeTokens`, `ThemeMode`, `NumvizErrorCode`,
+`NumvizErrorOptions`, `Table`, `TableConfig`, `TableColumnConfig`, `TableRow`,
+`TableAlign`, `TableVariant`, `TableFormatPreset`, `TableFormatter`,
+`TableCellRenderer`, `TableCellContext`, `TableSortState`,
+`TableSortDirection`, `TableState`, `TableData`, `ResolvedTableConfig` and
+`ResolvedTableColumn`.
 
 ## `createChart(config): Chart`
 
@@ -85,6 +91,113 @@ Series fields must be unique and numeric. Unknown or non-numeric fields throw
 
 Calling `render()` again removes previous output. Rendering a destroyed chart
 throws `DESTROYED`.
+
+## `createTable(config): Table`
+
+Renders a native HTML table. Data normalization matches charts (records,
+array-of-arrays with `columns`, or a `{ columns, rows }` dataset). Declared
+columns are preserved; missing cells become `null`; rows longer than the
+declared columns throw `INVALID_DATA`.
+
+```ts
+import { createTable } from "@munachi-me/numviz";
+
+const table = createTable({
+  data: [
+    { name: "Ada", department: "Engineering", salary: 145000, joined: "2019-07-15" }
+  ],
+  columns: [
+    { field: "name", label: "Employee" },
+    { field: "salary", format: "currency", currency: "USD" },
+    { field: "joined", format: "date" },
+    { label: "Status", render: (row) => (row.active ? "Active" : "Inactive") }
+  ]
+}).render("#table");
+```
+
+### Table configuration
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `data` | required | Records, matrix with `columns`, or dataset input |
+| `columns` | auto-detected | Field names or column objects |
+| `sortable` | `true` | Enables header sorting |
+| `defaultSort` | `null` | `{ field, direction?: "asc" \| "desc" }` |
+| `onSortChange` | — | Receives the next sort state or `null` |
+| `searchable` | `false` | Shows the search input |
+| `searchPlaceholder` | `"Search…"` | Search input placeholder |
+| `onSearchChange` | — | Receives the query |
+| `pagination` | `false` | Shows footer pagination controls |
+| `pageSize` | `10` | Rows per page |
+| `pageSizeOptions` | `[10, 25, 50, 100]` | Page-size selector options |
+| `onPageChange` | — | Receives the new page |
+| `rowNumbers` | `false` | Adds a row-number column |
+| `selectable` | `false` | Adds checkboxes and row selection |
+| `selectedRows` | `[]` | Initial selected row indices |
+| `onSelectionChange` | — | Receives selected indices and rows |
+| `loading` / `setLoading` | `false` | Loading state and message |
+| `error` / `setError` | `null` | Error message and retry styling |
+| `emptyMessage` | `"No data to display"` | Empty state text |
+| `noResultsMessage` | `"No matching rows"` | Search with no matches |
+| `variant` | `"minimal"` | `minimal`, `striped`, `bordered`, `compact`, `dashboard` |
+| `striped` | `false` | Adds zebra striping to any variant |
+| `stickyHeader` | `true` | Sticky header inside the scroll viewport |
+| `maxHeight` | — | Max viewport height (number in px or CSS length) |
+| `locale` | `"en-US"` | Locale for number and date formatting |
+| `theme` | `{}` | Same theme tokens as charts |
+| `className` | — | Extra class on the table root |
+| `title` | — | Heading above the table |
+| `caption` | — | Accessible caption text |
+| `ariaLabel` | — | Overrides the table accessible name |
+| `responsive` | `true` | Wrap the table in a scrollable viewport |
+
+### Table columns
+
+| Field | Description |
+| --- | --- |
+| `field` / `key` | Data field. Optional for render-only computed columns |
+| `label` | Header text |
+| `visible` | Hides the column when `false` |
+| `width` | Number (px) or CSS length |
+| `align` | `"left"`, `"center"`, `"right"`; numbers default to right |
+| `type` | `"string"`, `"number"`, `"date"`, `"boolean"` |
+| `format` | Preset (`text`, `number`, `currency`, `percent`, `date`) or `(value, row, column) => string` |
+| `formatOptions` | `Intl.NumberFormat` / `Intl.DateTimeFormat` options |
+| `currency` | ISO currency for the currency preset (default `USD`) |
+| `render` | `(row, { rowIndex, row, column }) => Node \| string \| number` |
+| `value` | `(row) => unknown` accessor for computed columns used in sorting/search |
+| `sortable` / `searchable` | Per-column overrides |
+| `className` / `headerClassName` | Custom classes |
+
+String values and string render results are inserted as text, never as HTML.
+Return a DOM node from `render` to add markup.
+
+### Table methods
+
+| Method | Description |
+| --- | --- |
+| `render(target)` | Renders into a selector or element; uses the target document |
+| `update(config)` | Re-resolves configuration and data, keeping state where valid |
+| `setData(data, columns?)` | Replaces data (and optionally columns) |
+| `setLoading(bool)` | Toggles the loading state |
+| `setError(string \| null)` | Shows or clears an error row |
+| `setSort(field, direction?, emit?)` | Sets or clears sorting by field |
+| `setPage(page, emit?)` | Sets the 1-based page, clamped to the page count |
+| `setSearch(query, emit?)` | Sets the query and resets to page 1 |
+| `setSelection(indices, emit?)` | Sets selected row indices |
+| `getSelectedRows()` | Returns selected row objects |
+| `getState()` | Sort, page, page count, query, selection and counts |
+| `destroy()` | Removes output and listeners |
+
+Only the current page is rendered; sorting, filtering and selection operate on
+the normalized row list, so large datasets do not create a DOM row per record.
+
+## React entry point
+
+`@munachi-me/numviz/react` exports `DataTable` and the `DataTableProps` and
+`DataTableHandle` types. React is an optional peer dependency (`>=18`) and the
+core entry never imports it. See [frameworks.md](./frameworks.md) for Next.js
+guidance.
 
 ## Axes
 
