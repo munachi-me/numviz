@@ -1,0 +1,142 @@
+#!/usr/bin/env node
+/**
+ * Installs the packed package into a throwaway consumer project and verifies
+ * default, named and namespace imports at runtime and in TypeScript.
+ */
+import { execFileSync } from "node:child_process";
+import { mkdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
+const root = process.cwd();
+const fixture = path.join(root, ".tmp", "consumer");
+
+function run(command, args, options = {}) {
+  return execFileSync(command, args, {
+    encoding: "utf8",
+    stdio: "pipe",
+    ...options
+  });
+}
+
+rmSync(fixture, { recursive: true, force: true });
+mkdirSync(fixture, { recursive: true });
+
+const packOutput = JSON.parse(run("npm", ["pack", "--json"], { cwd: root }));
+const packInfo = Array.isArray(packOutput) ? packOutput[0] : Object.values(packOutput)[0];
+if (!packInfo || typeof packInfo.filename !== "string") {
+  throw new Error("npm pack did not report a tarball filename");
+}
+const tarball = path.join(root, packInfo.filename);
+
+try {
+  writeFileSync(
+    path.join(fixture, "package.json"),
+    JSON.stringify(
+      {
+        name: "numviz-consumer",
+        private: true,
+        type: "module",
+        dependencies: { numviz: `file:${tarball}` }
+      },
+      null,
+      2
+    )
+  );
+  run("npm", ["install", "--no-audit", "--no-fund", "--silent"], { cwd: fixture });
+
+  writeFileSync(
+    path.join(fixture, "runtime-check.mjs"),
+    `import Numviz, { createChart, version, NumvizError } from "numviz";
+import * as named from "numviz";
+
+if (Numviz.createChart !== createChart) throw new Error("default and named createChart differ");
+if (named.createChart !== Numviz.createChart) throw new Error("namespace import differs");
+if (named.default !== Numviz) throw new Error("namespace default export differs");
+if (Numviz.version !== version) throw new Error("default and named version differ");
+if (typeof version !== "string" || version.length === 0) throw new Error("version is missing");
+
+let validationError;
+try {
+  createChart({ type: "radar", data: [], x: "a", y: "b" });
+} catch (error) {
+  validationError = error;
+}
+if (!(validationError instanceof NumvizError)) throw new Error("validation did not throw NumvizError");
+if (validationError.code !== "INVALID_TYPE") throw new Error("unexpected error code: " + validationError.code);
+
+const chart = createChart({
+  type: "bar",
+  data: [
+    { month: "Jan", revenue: "1200" },
+    { month: "Feb", revenue: 1800 }
+  ],
+  x: "month",
+  y: "revenue"
+});
+if (chart.config.y !== "revenue") throw new Error("config was not resolved");
+if (chart.data.rows[0].values.revenue !== 1200) throw new Error("numeric strings were not normalized");
+
+let domError;
+try {
+  chart.render("#chart");
+} catch (error) {
+  domError = error;
+}
+if (!domError || domError.code !== "NO_DOM") throw new Error("rendering outside a DOM should fail with NO_DOM");
+
+console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "no-dom"] }));
+`
+  );
+  const runtimeOutput = run(process.execPath, ["runtime-check.mjs"], { cwd: fixture }).trim();
+  console.log(`runtime imports: ${runtimeOutput}`);
+
+  writeFileSync(
+    path.join(fixture, "consumer.ts"),
+    `import Numviz, { createChart, NumvizError, type ChartConfig } from "numviz";
+
+const config: ChartConfig = {
+  type: "bar",
+  data: [{ month: "Jan", revenue: 1200 }],
+  x: "month",
+  y: "revenue",
+  theme: { mode: "dark", chartPalette: ["#6366F1"] }
+};
+
+const namedChart = createChart(config);
+const namespaceChart = Numviz.createChart(config);
+namedChart.render(document.body);
+namespaceChart.destroy();
+
+const error: NumvizError = new NumvizError("example", { code: "INVALID_CONFIG" });
+console.log(error.code, Numviz.version);
+`
+  );
+  writeFileSync(
+    path.join(fixture, "tsconfig.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          strict: true,
+          target: "ES2022",
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          lib: ["ES2022", "DOM", "DOM.Iterable"],
+          noEmit: true,
+          skipLibCheck: false
+        },
+        include: ["consumer.ts"]
+      },
+      null,
+      2
+    )
+  );
+  const tsc = path.join(root, "node_modules", "typescript", "bin", "tsc");
+  run(process.execPath, [tsc, "-p", path.join(fixture, "tsconfig.json")], { cwd: fixture });
+  console.log("consumer typecheck: declarations resolve for both import styles");
+} finally {
+  try {
+    unlinkSync(tarball);
+  } catch {
+    // tarball may already be gone
+  }
+}

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Doughnut chart</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← All examples</a>
+      <div id="chart"></div>
+      <p class="note">A dark theme configuration with data labels.</p>
+    </main>
+    <script type="module">
+      import { createChart } from "../dist/index.js";
+
+      createChart({
+        type: "doughnut",
+        data: [
+          { plan: "Starter", customers: 820 },
+          { plan: "Growth", customers: 430 },
+          { plan: "Scale", customers: 160 }
+        ],
+        x: "plan",
+        y: "customers",
+        title: "Customers by plan",
+        theme: { mode: "dark" },
+        labels: true
+      }).render("#chart");
+    </script>
+  </body>
+</html>

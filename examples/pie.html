@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Pie chart</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← All examples</a>
+      <div id="chart"></div>
+      <p class="note">Pie charts show the legend by default.</p>
+    </main>
+    <script type="module">
+      import { createChart } from "../dist/index.js";
+
+      createChart({
+        type: "pie",
+        data: [
+          { channel: "Direct", sessions: 4200 },
+          { channel: "Search", sessions: 6100 },
+          { channel: "Social", sessions: 2400 },
+          { channel: "Email", sessions: 1800 }
+        ],
+        x: "channel",
+        y: "sessions",
+        title: "Traffic by channel"
+      }).render("#chart");
+    </script>
+  </body>
+</html>

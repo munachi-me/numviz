@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Numiq dataset</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← All examples</a>
+      <div id="chart"></div>
+      <p class="note">A Numiq-compatible dataset ({ columns, rows }) used through the public interface.</p>
+    </main>
+    <script type="module">
+      import { createChart } from "../dist/index.js";
+
+      const dataset = {
+        columns: [
+          { key: "region", label: "Region" },
+          { key: "orders", label: "Orders", type: "number" }
+        ],
+        rows: [
+          ["North", 1240],
+          ["South", 980],
+          ["East", 1510],
+          ["West", 1120]
+        ]
+      };
+
+      createChart({
+        type: "bar",
+        data: dataset,
+        x: "region",
+        y: "orders",
+        title: "Orders by region",
+        subtitle: "Numiq-compatible dataset"
+      }).render("#chart");
+    </script>
+  </body>
+</html>

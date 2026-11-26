@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Array columns</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← All examples</a>
+      <div id="chart"></div>
+      <p class="note">Array-of-arrays data with explicit column definitions.</p>
+    </main>
+    <script type="module">
+      import Numviz from "../dist/index.js";
+
+      Numviz.createChart({
+        type: "line",
+        data: [
+          ["Q1", 18200],
+          ["Q2", 21400],
+          ["Q3", 24800],
+          ["Q4", 30100]
+        ],
+        columns: [
+          { key: "quarter", label: "Quarter" },
+          { key: "profit", label: "Profit", type: "number" }
+        ],
+        x: "quarter",
+        y: "profit",
+        title: "Quarterly profit"
+      }).render("#chart");
+    </script>
+  </body>
+</html>

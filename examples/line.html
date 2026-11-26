@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Line chart</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← All examples</a>
+      <div id="chart"></div>
+      <p class="note">Default import style: <code>Numviz.createChart()</code>.</p>
+    </main>
+    <script type="module">
+      import Numviz from "../dist/index.js";
+
+      Numviz.createChart({
+        type: "line",
+        data: [
+          { week: "W1", users: 1200 },
+          { week: "W2", users: 1450 },
+          { week: "W3", users: 1380 },
+          { week: "W4", users: 1720 },
+          { week: "W5", users: 1980 },
+          { week: "W6", users: 2310 }
+        ],
+        x: "week",
+        y: "users",
+        title: "Weekly active users",
+        subtitle: "Default namespace import"
+      }).render("#chart");
+    </script>
+  </body>
+</html>

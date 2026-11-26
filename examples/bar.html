@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Bar chart</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← All examples</a>
+      <div id="chart"></div>
+      <p class="note">Ordinary JavaScript data. Hover or focus a bar to see the tooltip.</p>
+    </main>
+    <script type="module">
+      import { createChart } from "../dist/index.js";
+
+      const data = [
+        { month: "Jan", revenue: 32000 },
+        { month: "Feb", revenue: 41000 },
+        { month: "Mar", revenue: 38500 },
+        { month: "Apr", revenue: 52000 },
+        { month: "May", revenue: 47800 },
+        { month: "Jun", revenue: 61000 }
+      ];
+
+      createChart({
+        type: "bar",
+        data,
+        x: "month",
+        y: "revenue",
+        title: "Monthly revenue",
+        subtitle: "First half of 2026",
+        labels: { formatter: (value) => `$${Math.round(value / 1000)}k` }
+      }).render("#chart");
+    </script>
+  </body>
+</html>

@@ -1,0 +1,53 @@
+{
+  "name": "numviz",
+  "version": "0.1.0",
+  "description": "Framework-independent JavaScript visualization and dashboard platform",
+  "keywords": [
+    "visualization",
+    "charts",
+    "dashboard",
+    "svg",
+    "typescript",
+    "dataviz"
+  ],
+  "license": "MIT",
+  "author": "munachi-me",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build && node scripts/consumer-test.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1",
+    "vitest": "^2.1.8"
+  }
+}
