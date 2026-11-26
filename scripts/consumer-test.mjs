@@ -4,10 +4,11 @@
  * default, named and namespace imports at runtime and in TypeScript.
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
+const packageName = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).name;
 const fixture = path.join(root, ".tmp", "consumer");
 
 function run(command, args, options = {}) {
@@ -36,7 +37,7 @@ try {
         name: "numviz-consumer",
         private: true,
         type: "module",
-        dependencies: { numviz: `file:${tarball}` }
+        dependencies: { [packageName]: `file:${tarball}` }
       },
       null,
       2
@@ -46,8 +47,8 @@ try {
 
   writeFileSync(
     path.join(fixture, "runtime-check.mjs"),
-    `import Numviz, { createChart, version, NumvizError } from "numviz";
-import * as named from "numviz";
+    `import Numviz, { createChart, version, NumvizError } from "${packageName}";
+import * as named from "${packageName}";
 
 if (Numviz.createChart !== createChart) throw new Error("default and named createChart differ");
 if (named.createChart !== Numviz.createChart) throw new Error("namespace import differs");
@@ -57,7 +58,7 @@ if (typeof version !== "string" || version.length === 0) throw new Error("versio
 
 let validationError;
 try {
-  createChart({ type: "radar", data: [], x: "a", y: "b" });
+  createChart({ type: "treemap", data: [], x: "a", y: "b" });
 } catch (error) {
   validationError = error;
 }
@@ -92,7 +93,7 @@ console.log(JSON.stringify({ version, checked: ["default", "named", "namespace",
 
   writeFileSync(
     path.join(fixture, "consumer.ts"),
-    `import Numviz, { createChart, NumvizError, type ChartConfig } from "numviz";
+    `import Numviz, { createChart, NumvizError, type ChartConfig } from "${packageName}";
 
 const config: ChartConfig = {
   type: "bar",

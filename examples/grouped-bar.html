@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Grouped bar chart</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← All examples</a>
+      <div id="chart"></div>
+      <p class="note">Two series with per-series colours and an interactive legend.</p>
+    </main>
+    <script type="module">
+      import { createChart } from "../dist/index.js";
+
+      createChart({
+        type: "grouped-bar",
+        data: [
+          { month: "Jan", revenue: 32000, expenses: 21000 },
+          { month: "Feb", revenue: 41000, expenses: 24000 },
+          { month: "Mar", revenue: 38500, expenses: 22500 },
+          { month: "Apr", revenue: 52000, expenses: 31000 }
+        ],
+        x: "month",
+        y: "revenue",
+        series: [
+          { field: "revenue", label: "Revenue", color: "#6366F1" },
+          { field: "expenses", label: "Expenses", color: "#F59E0B" }
+        ],
+        title: "Revenue vs expenses",
+        yAxis: { tickFormat: (value) => `$${Math.round(Number(value) / 1000)}k` }
+      }).render("#chart");
+    </script>
+  </body>
+</html>

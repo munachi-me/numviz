@@ -4,7 +4,18 @@
 import type { NumvizError as NumvizErrorClass } from "./errors.js";
 
 /** Chart types available in the core package. */
-export type ChartType = "bar" | "line" | "pie" | "doughnut";
+export type ChartType =
+  | "bar"
+  | "line"
+  | "pie"
+  | "doughnut"
+  | "area"
+  | "stacked-bar"
+  | "grouped-bar"
+  | "horizontal-bar"
+  | "scatter"
+  | "histogram"
+  | "radar";
 
 /** A single record of object-shaped input data. */
 export type DataRecord = Record<string, unknown>;
@@ -80,6 +91,7 @@ export interface TooltipContext {
   readonly label: string;
   readonly field: string;
   readonly index: number;
+  readonly series?: string;
 }
 
 export type ValueFormatter = (value: number, context: TooltipContext) => string;
@@ -89,8 +101,11 @@ export interface TooltipConfig {
   formatter?: ValueFormatter;
 }
 
+export type LabelPosition = "auto" | "inside" | "outside";
+
 export interface LabelConfig {
   show?: boolean;
+  position?: LabelPosition;
   formatter?: (value: number, label: string) => string;
 }
 
@@ -99,6 +114,8 @@ export type LegendPosition = "top" | "bottom" | "left" | "right";
 export interface LegendConfig {
   show?: boolean;
   position?: LegendPosition;
+  /** Clicking a legend item hides or shows its series. Defaults to true. */
+  interactive?: boolean;
 }
 
 export interface MarginConfig {
@@ -108,16 +125,74 @@ export interface MarginConfig {
   left: number;
 }
 
+/** One data series in a cartesian, scatter, histogram or radar chart. */
+export interface SeriesConfig {
+  field: string;
+  label?: string;
+  color?: string;
+}
+
+export type TickValue = number | string | Date;
+
+/** Axis configuration shared by category and numeric axes. */
+export interface AxisConfig {
+  title?: string;
+  show?: boolean;
+  grid?: boolean;
+  /** Tick label rotation in degrees. */
+  rotate?: number;
+  tickFormat?: (value: TickValue) => string;
+  /** Numeric axis domain bounds. Ignored by category axes. */
+  min?: number;
+  max?: number;
+}
+
+export interface ResolvedAxis {
+  readonly show: boolean;
+  readonly grid: boolean;
+  readonly rotate: number;
+  readonly title?: string;
+  readonly tickFormat?: (value: TickValue) => string;
+  readonly min?: number;
+  readonly max?: number;
+}
+
+export interface ResolvedSeries {
+  readonly index: number;
+  readonly field: string;
+  readonly label: string;
+  readonly color: string;
+}
+
+/** Interaction payload passed to `onClick` handlers. */
+export interface ChartClickEvent {
+  readonly type: ChartType;
+  readonly label: string;
+  readonly field: string;
+  readonly series?: string;
+  readonly value: number | null;
+  readonly index: number;
+  readonly originalEvent: Event;
+}
+
+export interface AnimationConfig {
+  enabled?: boolean;
+  /** Duration in milliseconds. */
+  duration?: number;
+}
+
 /** Chart configuration. */
 export interface ChartConfig {
   type: ChartType;
   data: DataInput;
-  /** Category / X field. Alias: `category`. */
+  /** Category / X field. Alias: `category`. Required except for histograms. */
   x?: string;
   /** Value / Y field. Alias: `value`. */
   y?: string;
   category?: string;
   value?: string;
+  /** Series definitions. Defaults to a single series using `y`. */
+  series?: readonly SeriesConfig[];
   /** Column definitions, required for array-of-arrays input. */
   columns?: readonly ColumnInput[];
   title?: string;
@@ -133,6 +208,14 @@ export interface ChartConfig {
   margin?: number | Partial<MarginConfig>;
   theme?: ThemeConfig;
   ariaLabel?: string;
+  xAxis?: AxisConfig;
+  yAxis?: AxisConfig;
+  /** Number of bins for histograms. Defaults to a Sturges-like rule. */
+  bins?: number;
+  /** Follow the container width. Defaults to true when `width` is omitted. */
+  responsive?: boolean;
+  animation?: boolean | AnimationConfig;
+  onClick?: (event: ChartClickEvent) => void;
 }
 
 /** Chart configuration after defaults, aliases and validation are applied. */
@@ -140,18 +223,33 @@ export interface ResolvedChartConfig {
   readonly type: ChartType;
   readonly x: string;
   readonly y: string;
+  readonly series: readonly ResolvedSeries[];
   readonly title?: string;
   readonly subtitle?: string;
   readonly width: number;
   readonly height: number;
   readonly palette: readonly string[];
   readonly background: string;
-  readonly legend: { readonly show: boolean; readonly position: LegendPosition };
-  readonly labels: { readonly show: boolean; readonly formatter?: (value: number, label: string) => string };
+  readonly legend: {
+    readonly show: boolean;
+    readonly position: LegendPosition;
+    readonly interactive: boolean;
+  };
+  readonly labels: {
+    readonly show: boolean;
+    readonly position: LabelPosition;
+    readonly formatter?: (value: number, label: string) => string;
+  };
   readonly tooltip: { readonly show: boolean; readonly formatter?: ValueFormatter };
   readonly margin: MarginConfig;
   readonly theme: ThemeConfig;
   readonly ariaLabel?: string;
+  readonly xAxis: ResolvedAxis;
+  readonly yAxis: ResolvedAxis;
+  readonly bins?: number;
+  readonly responsive: boolean;
+  readonly animation: { readonly enabled: boolean; readonly duration: number };
+  readonly onClick?: (event: ChartClickEvent) => void;
 }
 
 export interface NormalizedColumn {
@@ -182,6 +280,8 @@ export interface Chart {
   readonly data: NormalizedDataset;
   readonly element: HTMLElement | null;
   readonly isDestroyed: boolean;
+  /** Shows or hides a series by index, mirroring a legend interaction. */
+  setSeriesVisible(index: number, visible: boolean): Chart;
   /** Render the chart into a selector or DOM element. */
   render(target: string | Element): Chart;
   /** Remove rendered output and release listeners. */

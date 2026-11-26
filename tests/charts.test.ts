@@ -40,7 +40,7 @@ describe("public API", () => {
 
 describe("createChart validation", () => {
   it("rejects unknown chart types", () => {
-    expect(() => createChart({ type: "radar" as never, data, x: "month", y: "revenue" })).toThrowError(
+    expect(() => createChart({ type: "treemap" as never, data, x: "month", y: "revenue" })).toThrowError(
       NumvizError
     );
   });

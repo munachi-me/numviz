@@ -1,49 +1,75 @@
-# Numviz API reference — 0.1.0
+# Numviz API reference — 0.2.0
 
 ## Entry points
 
 ```ts
-import Numviz from "numviz";              // default namespace
-import { createChart } from "numviz";     // named export
+import Numviz from "@munachi-me/numviz";              // default namespace
+import { createChart } from "@munachi-me/numviz";     // named export
 ```
 
 Both resolve to the same implementation. The default namespace is frozen and
 contains `createChart`, `version` and `NumvizError`.
 
-Type-only exports include `Chart`, `ChartConfig`, `ChartType`, `DataInput`,
-`DataRecord`, `DataMatrixRow`, `DatasetLike`, `ColumnInput`,
-`ColumnDefinition`, `ColumnType`, `NormalizedDataset`, `NormalizedRow`,
-`NormalizedColumn`, `NormalizedValue`, `ResolvedChartConfig`, `ThemeConfig`,
-`ThemeTokens`, `ThemeMode`, `LegendConfig`, `LegendPosition`, `LabelConfig`,
-`TooltipConfig`, `TooltipContext`, `ValueFormatter`, `MarginConfig`,
-`NumvizErrorCode` and `NumvizErrorOptions`.
+Type exports include `Chart`, `ChartConfig`, `ChartType`, `ChartClickEvent`,
+`DataInput`, `DataRecord`, `DataMatrixRow`, `DatasetLike`, `ColumnInput`,
+`ColumnDefinition`, `ColumnType`, `SeriesConfig`, `ResolvedSeries`,
+`AxisConfig`, `ResolvedAxis`, `TickValue`, `AnimationConfig`, `LabelConfig`,
+`LabelPosition`, `LegendConfig`, `LegendPosition`, `TooltipConfig`,
+`TooltipContext`, `ValueFormatter`, `MarginConfig`, `NormalizedDataset`,
+`NormalizedRow`, `NormalizedColumn`, `NormalizedValue`, `ResolvedChartConfig`,
+`ThemeConfig`, `ThemeTokens`, `ThemeMode`, `NumvizErrorCode` and
+`NumvizErrorOptions`.
 
 ## `createChart(config): Chart`
 
 Validates the configuration, normalizes data and returns a chart instance.
-Validation happens immediately; rendering happens in `render()`
+Validation happens immediately; rendering happens in `render()`.
 
 ### ChartConfig
 
 | Property | Type | Default | Description |
 | --- | --- | --- | --- |
-| `type` | `"bar" \| "line" \| "pie" \| "doughnut"` | required | Chart type |
+| `type` | `ChartType` | required | Chart type |
 | `data` | `DataInput` | required | Source data |
-| `x` | `string` | required | Category field; alias `category` |
+| `x` | `string` | required except histogram | Category / X field; alias `category` |
 | `y` | `string` | required | Numeric value field; alias `value` |
+| `series` | `SeriesConfig[]` | `[y]` | Series definitions |
 | `columns` | `ColumnInput[]` | — | Column definitions for array-of-arrays data |
 | `title` | `string` | — | Chart title |
 | `subtitle` | `string` | — | Chart subtitle |
-| `width` | `number` | `720` | SVG viewBox width |
+| `width` | `number` | container width | SVG viewBox width |
 | `height` | `number` | `380` | SVG viewBox height |
 | `palette` | `string[]` | theme palette | Mark colours, cycled |
 | `background` | `string` | theme background | Background override |
-| `legend` | `boolean \| LegendConfig` | pie/doughnut `true` | Legend display |
+| `legend` | `boolean \| LegendConfig` | multi-series / pie | Legend display |
 | `labels` | `boolean \| LabelConfig` | `false` | Data labels |
 | `tooltip` | `boolean \| TooltipConfig` | `true` | Tooltips |
 | `margin` | `number \| Partial<MarginConfig>` | `16/20/44/56` | Plot margins |
 | `theme` | `ThemeConfig` | light | Token overrides |
-| `ariaLabel` | `string` | title or chart description | SVG accessible name |
+| `xAxis` / `yAxis` | `AxisConfig` | — | Axis options |
+| `bins` | `number` | Sturges-like | Histogram bins (1–200) |
+| `responsive` | `boolean` | `true` | Measure and follow the container |
+| `animation` | `boolean \| AnimationConfig` | enabled, 240 ms | Mark fade-in |
+| `onClick` | `(event: ChartClickEvent) => void` | — | Mark activation |
+| `ariaLabel` | `string` | title or description | SVG accessible name |
+
+### ChartType
+
+`"bar" | "grouped-bar" | "stacked-bar" | "horizontal-bar" | "line" | "area" |
+"scatter" | "histogram" | "radar" | "pie" | "doughnut"`
+
+### SeriesConfig
+
+```ts
+interface SeriesConfig {
+  field: string;   // numeric column
+  label?: string;  // legend and tooltip label
+  color?: string;  // CSS colour, defaults to the palette
+}
+```
+
+Series fields must be unique and numeric. Unknown or non-numeric fields throw
+`INVALID_CONFIG` / `INVALID_DATA` with the available fields.
 
 ### Chart instance
 
@@ -54,10 +80,30 @@ Validation happens immediately; rendering happens in `render()`
 | `element` | Rendered root element or `null` |
 | `isDestroyed` | Lifecycle flag |
 | `render(target)` | Render into a selector or element; returns the chart |
+| `setSeriesVisible(index, visible)` | Toggle a series like a legend click |
 | `destroy()` | Remove output, listeners and mark the chart destroyed |
 
-Calling `render()` again removes the previous output before rendering into the
-new target. Calling `render()` on a destroyed chart throws `DESTROYED`.
+Calling `render()` again removes previous output. Rendering a destroyed chart
+throws `DESTROYED`.
+
+## Axes
+
+```ts
+interface AxisConfig {
+  title?: string;
+  show?: boolean;        // default true
+  grid?: boolean;        // default true for numeric Y, false for category X
+  rotate?: number;       // -90..90 degrees of tick-label rotation
+  tickFormat?: (value: number | string | Date) => string;
+  min?: number;          // numeric axes only
+  max?: number;          // numeric axes only
+}
+```
+
+Numeric axes use nice ticks derived from the data (or `min`/`max`). Category
+axes truncate or rotate labels when space is tight. Horizontal-bar and
+histogram charts put the numeric axis on X, with vertical grid lines available
+through `xAxis.grid`.
 
 ## Data
 
@@ -82,6 +128,47 @@ all ISO date-like values → `date`; all booleans or `"true"`/`"false"` →
 Normalization never mutates input. Each normalized row keeps a `source`
 reference to the original record.
 
+## Series behaviour by chart type
+
+| Chart type | Series behaviour |
+| --- | --- |
+| `bar` | One series fills the slot; multiple series render side by side |
+| `grouped-bar` | Side-by-side bars for every series |
+| `stacked-bar` | Positive and negative stacks per category |
+| `horizontal-bar` | Grouped bars extending horizontally |
+| `line` / `area` | One path and point set per series; areas overlap |
+| `scatter` | Points per series using numeric or date X |
+| `histogram` | Uses the first visible series, bins its values |
+| `radar` | One polygon per series across category spokes |
+| `pie` / `doughnut` | Slices come from rows; `series` is not used |
+
+## Legend and interactions
+
+```ts
+interface LegendConfig {
+  show?: boolean;
+  position?: "top" | "right" | "bottom" | "left";
+  interactive?: boolean; // default true
+}
+```
+
+Legend items toggle their series by pointer click or Enter/Space and expose
+`aria-pressed`. `setSeriesVisible(index, visible)` performs the same action from
+code. Hovered and focused marks dim other categories (bars) or other series
+(line, area, scatter, radar, pie).
+
+```ts
+interface ChartClickEvent {
+  type: ChartType;
+  label: string;
+  field: string;
+  series?: string;
+  value: number | null;
+  index: number;
+  originalEvent: Event;
+}
+```
+
 ## Theme tokens
 
 | Token | Purpose |
@@ -95,12 +182,9 @@ reference to the original record.
 | `fontFamily`, `borderRadius` | Typography and shape |
 | `chartPalette` | Default series colours |
 
-`ThemeConfig` accepts `mode`, `accent`, `fontFamily`, `borderRadius`,
-`chartPalette`, `background`, `surface`, `text`, `mutedText`, `border` and
-`grid`. Partial themes merge over built-in tokens.
-
-Charts expose CSS custom properties (`--nv-*`) and documented class hooks so
-applications can restyle output without forking the renderer.
+Charts expose CSS custom properties (`--nv-*`, including
+`--nv-animation-duration`) and documented class hooks so applications can
+restyle output without forking the renderer.
 
 ## Errors
 
@@ -118,11 +202,11 @@ narrowing.
 
 ## Rendering model
 
-- Charts are SVG with a fixed `viewBox` and a 100% width, so they scale with
-  their container while preserving their aspect ratio.
-- Titles, axes, legends, labels and tooltips are part of the chart output.
-- Tooltips are HTML elements positioned over the chart root.
-- Marks are focusable and expose `aria-label` values for keyboard and screen
-  reader use.
+- Charts are SVG with a `viewBox`; width follows the container unless `width`
+  is set, and a `ResizeObserver` re-renders responsive charts on resize.
+- Titles, axes, legends, labels, grid lines and marks are part of the chart
+  output. Tooltips are HTML elements positioned over the chart root.
+- Marks are focusable and expose `aria-label` values.
+- Animations are CSS-only, configurable and disabled for reduced-motion users.
 - Styles are structural; colours come from theme tokens, so overrides do not
   leak between charts.

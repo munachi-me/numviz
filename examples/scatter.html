@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Scatter plot</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← All examples</a>
+      <div id="chart"></div>
+      <p class="note">Numeric X and Y fields with automatic domains.</p>
+    </main>
+    <script type="module">
+      import { createChart } from "../dist/index.js";
+
+      createChart({
+        type: "scatter",
+        data: [
+          { weight: 12, score: 41 },
+          { weight: 18, score: 52 },
+          { weight: 24, score: 58 },
+          { weight: 31, score: 67 },
+          { weight: 38, score: 71 },
+          { weight: 45, score: 80 },
+          { weight: 52, score: 79 },
+          { weight: 60, score: 88 }
+        ],
+        x: "weight",
+        y: "score",
+        title: "Score by weight",
+        xAxis: { title: "Weight" },
+        yAxis: { title: "Score" }
+      }).render("#chart");
+    </script>
+  </body>
+</html>

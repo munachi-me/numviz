@@ -3,15 +3,19 @@ import { svgElement } from "../../utils/dom.js";
 import { formatCategory, formatNumber } from "../../utils/format.js";
 import type { RenderContext } from "../context.js";
 import {
-  attachTooltip,
   createChartSvg,
-  createTooltip,
   drawHeader,
   drawLegend,
-  renderEmptyState,
   reserveLegend,
   resolvePlot
 } from "./common.js";
+import {
+  attachHighlight,
+  attachInteraction,
+  attachTooltip,
+  createTooltip,
+  renderEmptyState
+} from "./interactions.js";
 
 interface Slice {
   readonly index: number;
@@ -66,9 +70,14 @@ export function renderArcChart(ctx: RenderContext): void {
 
   const plottable = data.rows
     .map((row, index) => ({ row, index }))
-    .filter(({ row }) => {
+    .filter(({ row, index }) => {
       const value = row.values[config.y];
-      return typeof value === "number" && Number.isFinite(value) && value > 0;
+      return (
+        !ctx.hiddenSeries.has(index) &&
+        typeof value === "number" &&
+        Number.isFinite(value) &&
+        value > 0
+      );
     });
 
   const total = plottable.reduce((sum, { row }) => sum + (row.values[config.y] as number), 0);
@@ -109,7 +118,8 @@ export function renderArcChart(ctx: RenderContext): void {
       "stroke-width": 2,
       class: "numviz-chart__mark",
       "data-numviz-part": "slice",
-      "data-index": slice.index
+      "data-index": slice.index,
+      "data-series": slice.index
     });
     const percent = (slice.value / total) * 100;
     const valueText = config.tooltip.formatter
@@ -120,6 +130,13 @@ export function renderArcChart(ctx: RenderContext): void {
         })
       : `${formatNumber(slice.value)} (${percent.toFixed(1)}%)`;
     if (tooltip) attachTooltip(ctx, path, tooltip, slice.label, valueText);
+    attachInteraction(ctx, path, {
+      label: slice.label,
+      field: config.y,
+      value: slice.value,
+      index: slice.index
+    });
+    attachHighlight(ctx, path, "series");
     marks.appendChild(path);
 
     if (config.labels.show && sweep > 0.35) {
@@ -138,7 +155,9 @@ export function renderArcChart(ctx: RenderContext): void {
             "data-numviz-part": "value-label",
             fill: "#FFFFFF"
           },
-          config.labels.formatter ? config.labels.formatter(slice.value, slice.label) : `${Math.round(percent)}%`
+          config.labels.formatter
+            ? config.labels.formatter(slice.value, slice.label)
+            : `${Math.round(percent)}%`
         )
       );
     }

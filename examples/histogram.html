@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Histogram</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← All examples</a>
+      <div id="chart"></div>
+      <p class="note">Value distribution grouped into ten bins.</p>
+    </main>
+    <script type="module">
+      import { createChart } from "../dist/index.js";
+
+      const values = [];
+      let seed = 7;
+      for (let index = 0; index < 120; index += 1) {
+        seed = (seed * 9301 + 49297) % 233280;
+        values.push({ order: index, total: Math.round(40 + (seed / 233280) * 160) });
+      }
+
+      createChart({
+        type: "histogram",
+        data: values,
+        y: "total",
+        bins: 10,
+        title: "Order value distribution",
+        yAxis: { title: "Orders" },
+        xAxis: { title: "Order total" }
+      }).render("#chart");
+    </script>
+  </body>
+</html>
