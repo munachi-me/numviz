@@ -15,8 +15,15 @@ export function getDocument(): Document {
   return doc;
 }
 
+type DocumentWindow = Window & typeof globalThis;
+
+/** Window that owns a document, when one is available. */
+export function getWindow(doc: Document): DocumentWindow | undefined {
+  return (doc.defaultView ?? undefined) as DocumentWindow | undefined;
+}
+
 /** Resolve a CSS selector or DOM element to an element. */
-export function resolveContainer(target: string | Element): Element {
+export function resolveContainer(target: string | Element, scope?: Document): Element {
   if (typeof target !== "string") {
     if (target && typeof target === "object" && "nodeType" in target && target.nodeType === 1) {
       return target;
@@ -31,7 +38,7 @@ export function resolveContainer(target: string | Element): Element {
     throw new NumvizError("Chart target selector must not be empty.", { code: "INVALID_CONTAINER" });
   }
 
-  const doc = getDocument();
+  const doc = scope ?? getDocument();
   const found = doc.querySelector(target);
   if (!found) {
     throw new NumvizError(`No element matches the chart target selector "${target}".`, {

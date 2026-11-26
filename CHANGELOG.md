@@ -2,6 +2,36 @@
 
 All notable changes to Numviz are documented in this file.
 
+## [0.2.1] - 2026-11-26
+
+### Added
+
+- Cross-document rendering: charts use the target element's `ownerDocument` and
+  `defaultView` for styles, SVG, `ResizeObserver`, `requestAnimationFrame` and
+  system theme detection, enabling iframe and multi-document hosts.
+- Runtime validation for theme tokens and palettes, series arrays, legend,
+  labels, tooltip, animation, responsive and `onClick`/`tickFormat`/formatter
+  callbacks, all reported with `INVALID_CONFIG` and a precise `path`.
+- Regression tests for the build scripts, every validation rule, declared
+  columns with missing records, ragged rows, missing cells and iframe rendering.
+
+### Changed
+
+- The build script uses `node scripts/clean.mjs` instead of Unix-only `rm -rf`,
+  so builds run on Windows as well as macOS and Linux.
+- Declared columns are preserved in their declared order even when records omit
+  them; undeclared record keys follow the declared columns.
+- Documentation now defines missing-cell handling for array-of-arrays rows.
+
+### Fixed
+
+- `theme.borderRadius: NaN` and infinite animation durations were accepted.
+- Non-boolean `legend.show`, `labels.show`, `tooltip.show`, `animation.enabled`
+  and `responsive` values were accepted.
+- Non-function formatters and `onClick` handlers were accepted.
+- Array-of-arrays rows longer than the declared columns silently dropped values;
+  they now throw `INVALID_DATA` with row details.
+
 ## [0.2.0] - 2026-11-26
 
 ### Added

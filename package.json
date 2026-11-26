@@ -1,6 +1,6 @@
 {
   "name": "@munachi-me/numviz",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Framework-independent JavaScript visualization and dashboard platform",
   "keywords": [
     "visualization",
@@ -35,7 +35,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "build": "node scripts/clean.mjs && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run",

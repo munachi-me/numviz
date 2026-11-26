@@ -46,8 +46,12 @@ const DARK_BASE = {
 export const DEFAULT_FONT_FAMILY =
   'Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
-function prefersDarkMode(): boolean {
-  const media = globalThis.matchMedia;
+type MediaQueryWindow = {
+  matchMedia?: (query: string) => { matches: boolean };
+};
+
+function prefersDarkMode(view?: MediaQueryWindow | null): boolean {
+  const media = view?.matchMedia ?? globalThis.matchMedia;
   if (typeof media !== "function") return false;
   try {
     return media("(prefers-color-scheme: dark)").matches;
@@ -56,16 +60,19 @@ function prefersDarkMode(): boolean {
   }
 }
 
-export function resolveThemeMode(mode: ThemeConfig["mode"] = "light"): "light" | "dark" {
-  return mode === "system" ? (prefersDarkMode() ? "dark" : "light") : mode;
+export function resolveThemeMode(
+  mode: ThemeConfig["mode"] = "light",
+  view?: MediaQueryWindow | null
+): "light" | "dark" {
+  return mode === "system" ? (prefersDarkMode(view) ? "dark" : "light") : mode;
 }
 
 /**
  * Resolve a partial theme configuration into complete design tokens.
  * Component values take precedence over library defaults.
  */
-export function resolveTheme(theme: ThemeConfig = {}): ThemeTokens {
-  const mode = resolveThemeMode(theme.mode);
+export function resolveTheme(theme: ThemeConfig = {}, view?: MediaQueryWindow | null): ThemeTokens {
+  const mode = resolveThemeMode(theme.mode, view);
   const base = mode === "dark" ? DARK_BASE : LIGHT_BASE;
   return {
     mode,
