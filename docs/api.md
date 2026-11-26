@@ -1,4 +1,4 @@
-# Numviz API reference — 0.4.0
+# Numviz API reference — 0.4.1
 
 ## Entry points
 
@@ -9,8 +9,9 @@ import { DataTable, Metric } from "@munachi-me/numviz/react"; // optional React 
 ```
 
 The default namespace is frozen and contains `createChart`, `createTable`,
-`createMetric`, `version` and `NumvizError`. The React subpath is a separate optional entry and
-is the only module that imports React.
+`createMetric`, `version` and `NumvizError`. Named and default imports reference
+the same function implementations. The React subpath is a separate optional
+entry and is the only module that imports React.
 
 Type exports include `Chart`, `ChartConfig`, `ChartType`, `ChartClickEvent`,
 `DataInput`, `DataRecord`, `DataMatrixRow`, `DatasetLike`, `ColumnInput`,

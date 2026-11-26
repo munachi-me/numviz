@@ -110,6 +110,23 @@ describe("React Metric", () => {
     await act(async () => root.unmount());
   });
 
+  it("destroys the metric engine on unmount", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    const ref = createRef<MetricHandle>();
+    await act(async () => {
+      root.render(createElement(Metric, { ref, name: "Revenue", data, column: "revenue" }));
+    });
+    const metric = ref.current?.getMetric();
+    expect(metric?.element).not.toBeNull();
+
+    await act(async () => root.unmount());
+    expect(metric?.isDestroyed).toBe(true);
+    expect(metric?.element).toBeNull();
+    expect(ref.current).toBeNull();
+  });
+
   it("applies inline host styles", async () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
