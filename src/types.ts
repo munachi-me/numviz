@@ -1,3 +1,4 @@
+import type { Dashboard, DashboardConfig } from "./dashboard/types.js";
 import type { Metric, MetricConfig } from "./metric/types.js";
 import type { Table, TableConfig } from "./table/types.js";
 
@@ -301,6 +302,7 @@ export interface NumvizNamespace {
   readonly createChart: (config: ChartConfig) => Chart;
   readonly createTable: (config: TableConfig) => Table;
   readonly createMetric: (config: MetricConfig) => Metric;
+  readonly createDashboard: (config: DashboardConfig) => Dashboard;
   readonly version: string;
   readonly NumvizError: typeof NumvizErrorClass;
 }

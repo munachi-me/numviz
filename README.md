@@ -5,9 +5,9 @@ renders charts, HTML data tables and KPI metric cards from ordinary JavaScript
 data — no React, Next.js, Numiq, or CSS framework required. React is optional and
 available from a separate subpath.
 
-**Current release:** `0.4.1` — a public API, consumer-package and React
-integration audit of the 0.4.0 metrics release, on top of the 0.3.x table engine
-and 0.2.x chart foundation.
+**Current release:** `0.5.0` — the dashboard composition engine, combining
+independent charts, tables, metrics and content in a responsive grid, on top of
+the 0.4.x metrics release and the 0.2.x chart and 0.3.x table foundations.
 
 Published on npm as **`@munachi-me/numviz`**.
 
@@ -66,10 +66,11 @@ chart.render(document.querySelector("#chart"));
 ```
 
 `Numviz.createChart === createChart`, `Numviz.createTable === createTable`,
-`Numviz.createMetric === createMetric`, and `Numviz.version` matches the named
-`version` export. The root entry exports all three factory functions as named
-imports and through the frozen default namespace; the optional React components
-live only in `@munachi-me/numviz/react`.
+`Numviz.createMetric === createMetric`, `Numviz.createDashboard === createDashboard`,
+and `Numviz.version` matches the named `version` export. The root entry exports
+all four factory functions as named imports and through the frozen default
+namespace; the optional React components live only in
+`@munachi-me/numviz/react`.
 
 ## Chart types
 
@@ -199,11 +200,85 @@ revenue.render("#revenue");
 See [docs/api.md](./docs/api.md#createmetricconfig-metric) for the complete
 metric and comparison API.
 
+## Dashboards
+
+`createDashboard` composes independent charts, tables, metrics and content into a
+responsive grid. Every component carries its own data; a dashboard never assumes
+all widgets share one dataset.
+
+```ts
+import { createDashboard } from "@munachi-me/numviz";
+
+const dashboard = createDashboard({
+  title: "Sales Analytics",
+  description: "Business performance overview",
+  format: { locale: "en-US", currency: "USD" },
+  layout: {
+    columns: { base: 1, sm: 2, lg: 4 },
+    gap: 16,
+    align: "stretch"
+  },
+  components: [
+    {
+      id: "revenue",
+      type: "metric",
+      name: "Total Revenue",
+      data: revenueRows,
+      column: "revenue",
+      aggregation: "sum",
+      format: "currency"
+    },
+    {
+      id: "sales",
+      type: "chart",
+      chartType: "bar",
+      data: monthlyRows,
+      x: "month",
+      y: "revenue",
+      layout: { columnSpan: 2 }
+    },
+    {
+      id: "records",
+      type: "table",
+      data: employeeRows,
+      layout: { columnSpan: 2 }
+    }
+  ]
+});
+
+dashboard.render("#dashboard");
+```
+
+- **Components**: `chart`, `table`, `metric`, `heading`, `text`, `description`,
+  `divider`, `image` and an explicit safe `custom` component. A custom component
+  returns a DOM node, plain text or `null`; returned strings are inserted as
+  text, never parsed as HTML.
+- **Responsive layout**: configurable columns per `sm`, `md`, `lg` and `xl`
+  breakpoint, grid gap, row gap, padding and alignment. Widgets support column
+  and row starts, spans, ordering, width, height, minimum sizes and self
+  alignment. Column spans are clamped to the active breakpoint, so wide widgets
+  do not create implicit columns on narrow screens.
+- **Shared presentation, independent state**: dashboard theme tokens flow into
+  each widget unless the widget overrides them. Per-widget `style` supports
+  background, border, radius, padding, shadow and class overrides. Layout is
+  configured separately from visual style.
+- **Global formatting**: dashboard `format.locale` and `format.currency` fill in
+  metric and table defaults when the widget does not specify them.
+- **Lifecycle**: `render`, `update`, `refresh`, `destroy` and `getWidget`.
+  Updates reconcile widgets by id, preserve table state and recompute metrics;
+  removed widgets and their engines are destroyed. `refresh()` re-reads current
+  component data.
+- **Isolation**: each dashboard gets a scoped layout stylesheet keyed to its
+  instance, so columns and breakpoints do not leak between dashboards.
+
+See [docs/api.md](./docs/api.md#createdashboardconfig-dashboard) for the complete
+dashboard, layout and component API, and open `examples/dashboard.html`.
+
 ## React and Next.js
 
 React support is optional and lives at `@munachi-me/numviz/react`. Install React
-alongside Numviz, then use the typed `DataTable` and `Metric` components. The
-core package never imports React.
+alongside Numviz, then use the typed `Dashboard`, `DataTable` and `Metric`
+components. The core package never imports React.
 
 ```tsx
 import { DataTable } from "@munachi-me/numviz/react";
@@ -230,8 +305,33 @@ import { Metric } from "@munachi-me/numviz/react";
 />;
 ```
 
-See [docs/frameworks.md](./docs/frameworks.md) for Next.js client boundaries,
-server rendering, controlled tables and metric examples.
+```tsx
+import { Dashboard } from "@munachi-me/numviz/react";
+
+export function Overview() {
+  return (
+    <Dashboard
+      title="Sales Analytics"
+      components={[
+        {
+          id: "revenue",
+          type: "metric",
+          name: "Total Revenue",
+          data: revenueRows,
+          column: "revenue",
+          aggregation: "sum"
+        },
+        { id: "records", type: "table", data: employeeRows }
+      ]}
+    />
+  );
+}
+```
+
+You can also render `DataTable` and `Metric` directly without the dashboard
+wrapper. See [docs/frameworks.md](./docs/frameworks.md) for Next.js client
+boundaries, server rendering, dashboard lifecycle, controlled tables and metric
+examples.
 
 ## Multi-series data
 
@@ -537,8 +637,9 @@ Errors are `NumvizError` instances with a `code` and optional `path`.
 ## Examples
 
 The `examples/` folder contains framework-free HTML pages for every chart type,
-the table engine (`table.html`, `table-themes.html`) and KPI metrics
-(`metrics.html`), plus data format examples:
+the table engine (`table.html`, `table-themes.html`), KPI metrics
+(`metrics.html`) and dashboard composition (`dashboard.html`), plus data format
+examples:
 
 ```bash
 npm install
@@ -560,16 +661,16 @@ npm run verify      # typecheck, lint, tests, build, consumer import test
 The build removes `dist/` with `scripts/clean.mjs`, which uses Node's filesystem
 API instead of Unix-only shell commands, so it runs on Windows, macOS and Linux.
 The consumer test packs the package, installs it into a temporary project with
-React, and verifies named, default and namespace imports, chart/table/metric
-runtime behaviour, root declaration resolution and the separate React subpath.
-It also server-renders `DataTable` and `Metric` and confirms that no core build
-file imports React.
+React, and verifies named, default and namespace imports, chart/table/metric/
+dashboard runtime behaviour, root declaration resolution and the separate React
+subpath. It also server-renders `Dashboard`, `DataTable` and `Metric` and
+confirms that no core build file imports React.
 
 ## Release history
 
-See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: `0.4.x`
-adds metrics and KPI cards; dashboards, framework adapters, the complete theme
-engine, standalone export and reporting arrive before `1.0.0`.
+See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: `0.5.x`
+adds dashboard composition; framework adapters, the complete theme engine,
+standalone export and reporting arrive before `1.0.0`.
 
 ## License
 

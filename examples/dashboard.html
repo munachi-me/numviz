@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Dashboard</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main class="wide">
+      <a class="back" href="index.html">← All examples</a>
+      <div id="dashboard"></div>
+      <p class="note">
+        Charts, tables and metrics keep their own datasets. Components are placed
+        in a responsive grid with span, order, spacing and breakpoint controls.
+      </p>
+    </main>
+    <script type="module">
+      import { createDashboard } from "../dist/index.js";
+
+      const monthly = [
+        { month: "Jan", revenue: 108000, target: 100000 },
+        { month: "Feb", revenue: 119000, target: 110000 },
+        { month: "Mar", revenue: 126000, target: 118000 },
+        { month: "Apr", revenue: 129000, target: 124000 },
+        { month: "May", revenue: 138000, target: 130000 },
+        { month: "Jun", revenue: 145000, target: 138000 }
+      ];
+
+      const regions = [
+        { region: "North", revenue: 216000, orders: 412, growth: 0.084 },
+        { region: "South", revenue: 188000, orders: 366, growth: 0.052 },
+        { region: "East", revenue: 164000, orders: 318, growth: 0.031 },
+        { region: "West", revenue: 142000, orders: 279, growth: 0.017 }
+      ];
+
+      const dashboard = createDashboard({
+        title: "Sales Analytics",
+        description: "Business performance overview for the first half of the year",
+        header: { text: "Updated from the latest regional close" },
+        footer: { text: "Numviz dashboard composition engine" },
+        format: { locale: "en-US", currency: "USD" },
+        theme: {
+          accent: "#4F46E5",
+          chartPalette: ["#4F46E5", "#06B6D4", "#10B981", "#F59E0B"]
+        },
+        layout: {
+          columns: { base: 1, sm: 2, lg: 4 },
+          breakpoints: { sm: 640, md: 768, lg: 1024 },
+          gap: 16,
+          padding: 0,
+          align: "stretch"
+        },
+        components: [
+          {
+            id: "section",
+            type: "heading",
+            text: "Revenue performance",
+            level: 2,
+            layout: { columnSpan: 4 }
+          },
+          {
+            id: "revenue",
+            type: "metric",
+            name: "Total revenue",
+            data: monthly,
+            column: "revenue",
+            aggregation: "sum",
+            format: "currency",
+            description: "January to June",
+            icon: "$"
+          },
+          {
+            id: "orders",
+            type: "metric",
+            name: "Orders",
+            data: regions,
+            column: "orders",
+            aggregation: "sum",
+            format: "compact",
+            description: "All regions",
+            icon: "◫"
+          },
+          {
+            id: "growth",
+            type: "metric",
+            name: "Average growth",
+            data: regions,
+            column: "growth",
+            aggregation: "average",
+            format: "percent",
+            description: "Regional average",
+            icon: "↗",
+            positiveDirection: "up"
+          },
+          {
+            id: "regions",
+            type: "metric",
+            name: "Regions",
+            data: regions,
+            aggregation: "count",
+            description: "Reporting regions",
+            icon: "◎"
+          },
+          {
+            id: "trend",
+            type: "chart",
+            chartType: "line",
+            title: "Revenue against target",
+            data: monthly,
+            x: "month",
+            y: "revenue",
+            series: [
+              { field: "revenue", label: "Revenue" },
+              { field: "target", label: "Target" }
+            ],
+            layout: { columnSpan: 2, minHeight: 320 }
+          },
+          {
+            id: "mix",
+            type: "chart",
+            chartType: "bar",
+            title: "Regional revenue",
+            data: regions,
+            x: "region",
+            y: "revenue",
+            layout: { columnSpan: 2, minHeight: 320 }
+          },
+          {
+            id: "records",
+            type: "table",
+            title: "Regional detail",
+            data: regions,
+            columns: [
+              { field: "region", label: "Region" },
+              { field: "revenue", label: "Revenue", format: "currency" },
+              { field: "orders", label: "Orders", format: "number" },
+              { field: "growth", label: "Growth", format: "percent" }
+            ],
+            pagination: false,
+            striped: true,
+            layout: { columnSpan: 2 }
+          },
+          {
+            id: "note",
+            type: "description",
+            text: "Use the breakpoint controls to change columns, then place widgets with span, order and alignment options.",
+            layout: { columnSpan: 2 }
+          }
+        ]
+      });
+
+      dashboard.render("#dashboard");
+    </script>
+  </body>
+</html>

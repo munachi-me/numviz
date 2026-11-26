@@ -1,17 +1,17 @@
-# Numviz API reference — 0.4.1
+# Numviz API reference — 0.5.0
 
 ## Entry points
 
 ```ts
 import Numviz from "@munachi-me/numviz";              // default namespace
-import { createChart, createTable, createMetric } from "@munachi-me/numviz";
-import { DataTable, Metric } from "@munachi-me/numviz/react"; // optional React entry
+import { createChart, createTable, createMetric, createDashboard } from "@munachi-me/numviz";
+import { Dashboard, DataTable, Metric } from "@munachi-me/numviz/react"; // optional React entry
 ```
 
 The default namespace is frozen and contains `createChart`, `createTable`,
-`createMetric`, `version` and `NumvizError`. Named and default imports reference
-the same function implementations. The React subpath is a separate optional
-entry and is the only module that imports React.
+`createMetric`, `createDashboard`, `version` and `NumvizError`. Named and default
+imports reference the same function implementations. The React subpath is a
+separate optional entry and is the only module that imports React.
 
 Type exports include `Chart`, `ChartConfig`, `ChartType`, `ChartClickEvent`,
 `DataInput`, `DataRecord`, `DataMatrixRow`, `DatasetLike`, `ColumnInput`,
@@ -30,8 +30,17 @@ Type exports include `Chart`, `ChartConfig`, `ChartType`, `ChartClickEvent`,
 `MetricComparisonConfig`, `MetricComparisonResult`, `MetricContext`,
 `MetricDirection`, `MetricFilter`, `MetricRowFilter`, `MetricRowContext`,
 `MetricFormat`, `MetricFormatPreset`, `MetricFormatContext`,
-`MetricFormatter`, `MetricIcon`, `MetricState`, `MetricTrend` and
-`MetricVariant`.
+`MetricFormatter`, `MetricIcon`, `MetricState`, `MetricTrend`,
+`MetricVariant`, `Dashboard`, `DashboardConfig`, `DashboardComponent`,
+`DashboardChartComponent`, `DashboardTableComponent`,
+`DashboardMetricComponent`, `DashboardHeadingComponent`,
+`DashboardTextComponent`, `DashboardDescriptionComponent`,
+`DashboardDividerComponent`, `DashboardImageComponent`,
+`DashboardCustomComponent`, `DashboardWidget`, `DashboardLayout`,
+`DashboardColumns`, `DashboardBreakpoints`, `DashboardComponentLayout`,
+`DashboardWidgetStyle`, `DashboardFormatConfig`, `DashboardHeaderConfig`,
+`DashboardFooterConfig`, `DashboardVariant`, `ResolvedDashboardConfig` and
+`ResolvedDashboardLayout`.
 
 ## `createChart(config): Chart`
 
@@ -327,13 +336,143 @@ or missing; `direction` is `null` when either side is `null`.
 `result`, `config`, `element` and `isDestroyed` are readable properties. String
 values and formatter results are inserted as text, never HTML.
 
+## `createDashboard(config): Dashboard`
+
+Creates a responsive dashboard from independent components. Configuration is
+validated immediately, including each chart, table and metric configuration.
+Rendering is deferred until `render` is called.
+
+```ts
+import { createDashboard } from "@munachi-me/numviz";
+
+const dashboard = createDashboard({
+  title: "Sales Analytics",
+  description: "Business performance overview",
+  theme: { accent: "#4F46E5" },
+  background: "#F8FAFC",
+  format: { locale: "en-US", currency: "USD" },
+  header: { text: "Updated just now" },
+  footer: { text: "Internal reporting" },
+  layout: {
+    columns: { base: 1, sm: 2, lg: 4 },
+    breakpoints: { sm: 640, md: 768, lg: 1024, xl: 1280 },
+    gap: 16,
+    rowGap: 16,
+    padding: 0,
+    align: "stretch",
+    variant: "default"
+  },
+  widgetStyle: { boxShadow: "sm" },
+  components: [
+    {
+      id: "revenue",
+      type: "metric",
+      name: "Total Revenue",
+      data: revenueRows,
+      column: "revenue",
+      aggregation: "sum",
+      format: "currency"
+    },
+    {
+      id: "sales",
+      type: "chart",
+      chartType: "bar",
+      data: monthlyRows,
+      x: "month",
+      y: "revenue"
+    },
+    { id: "records", type: "table", data: employeeRows }
+  ]
+});
+
+dashboard.render("#dashboard");
+```
+
+### Components
+
+| `type` | Required fields | Notes |
+| --- | --- | --- |
+| `"chart"` | `id`, `chartType`, `data` | Accepts `ChartConfig` fields except `type`; maps `chartType` to the chart type |
+| `"table"` | `id`, `data` | Accepts all `TableConfig` fields |
+| `"metric"` | `id`, `data`, and `name` or `title` | Accepts all `MetricConfig` fields; `title` becomes the metric name when `name` is omitted |
+| `"heading"` | `id`, `text` | Optional `level` from 1 to 6; default 2 |
+| `"text"` | `id`, `text` | Plain text paragraph |
+| `"description"` | `id`, `text` | Muted supporting paragraph |
+| `"divider"` | `id` | Horizontal rule |
+| `"image"` | `id`, `src`, `alt` | Optional `width`, `height`, `fit` (`cover` or `contain`) and `caption` |
+| `"custom"` | `id`, `render` | Explicit safe extension; optional `destroy` |
+
+Every component accepts `title`, `ariaLabel`, `layout` and `style`. Component
+ids must be unique and non-empty.
+
+A custom component receives a context with `id`, `document`, `dashboard` and
+`component`. Its `render` callback may return a DOM node, a string or `null`.
+Strings are inserted with `textContent`, never parsed as HTML. `destroy` is
+called when the widget is removed or the dashboard is destroyed.
+
+### Layout
+
+`DashboardComponentLayout` controls one widget inside the grid:
+
+| Field | Description |
+| --- | --- |
+| `column`, `row` | One-based grid start |
+| `columnSpan`, `rowSpan` | Positive integer spans; column spans are clamped to the active breakpoint column count |
+| `order` | CSS grid item order |
+| `width`, `height`, `minWidth`, `minHeight` | Number (pixels) or CSS length |
+| `align` | `start`, `center`, `end` or `stretch` |
+
+Dashboard `layout.columns` accepts a number or an object with `base`, `sm`,
+`md`, `lg` and `xl` counts. Missing breakpoint counts inherit from the previous
+breakpoint. `layout.rows` accepts a row count or a CSS `grid-template-rows`
+value, and `layout.autoRows` controls implicit row sizing. `layout.breakpoints` controls the minimum widths and must increase
+from `sm` to `md` to `lg` to `xl`. Each dashboard gets unique scoped layout CSS,
+so multiple dashboards do not share columns or breakpoints.
+
+`layout.variant` is `default`, `compact` or `flush`. Visual per-widget overrides
+live in `style` or dashboard `widgetStyle`:
+
+```ts
+{
+  id: "sales",
+  type: "chart",
+  chartType: "line",
+  data,
+  x: "month",
+  y: "revenue",
+  layout: { columnSpan: 2, minHeight: 320, order: 1 },
+  style: { background: "#0B1120", border: "0", padding: 12, boxShadow: "md" }
+}
+```
+
+### Lifecycle
+
+| Method | Description |
+| --- | --- |
+| `render(target)` | Renders into a selector or element |
+| `update(config)` | Validates and reconciles widgets by id |
+| `refresh()` | Re-renders against current component data |
+| `getWidget(id)` | Returns the widget component, engine and element |
+| `destroy()` | Destroys child engines, clears custom components and removes output |
+
+`config`, `widgets`, `element` and `isDestroyed` are readable properties. Table
+and metric engines are preserved across updates where the id and type match;
+charts are recreated because their engine has no partial update method. Removed
+widgets and their engines are always destroyed.
+
+The header is configured with `header: false` to hide it, a string for plain
+header text, or an object containing `title`, `description`, `text` and
+`className`. Top-level `title` and `description` supply the defaults. `footer`
+accepts a string, an object with `text` and `className`, or `false`.
+
 ## React entry point
 
-`@munachi-me/numviz/react` exports `DataTable`, `Metric` and the
-`DataTableProps`, `DataTableHandle`, `MetricProps` and `MetricHandle` types.
-React is an optional peer dependency (`>=18`) and the core entry never imports
-it. Both components render only a host element during server rendering. See
-[frameworks.md](./frameworks.md) for Next.js guidance.
+`@munachi-me/numviz/react` exports `Dashboard`, `DataTable`, `Metric` and the
+`DashboardProps`, `DashboardHandle`, `DataTableProps`, `DataTableHandle`,
+`MetricProps` and `MetricHandle` types. React is an optional peer dependency
+(`>=18`) and the core entry never imports it. All components render only a host
+element during server rendering. See [frameworks.md](./frameworks.md) for
+Next.js guidance.
 
 ## Axes
 

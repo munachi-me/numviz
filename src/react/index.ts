@@ -8,6 +8,11 @@ import {
   useRef,
   type CSSProperties
 } from "react";
+import { createDashboard } from "../dashboard/dashboard.js";
+import type {
+  Dashboard as DashboardInstance,
+  DashboardConfig
+} from "../dashboard/types.js";
 import { createMetric } from "../metric/metric.js";
 import type {
   Metric as MetricInstance,
@@ -200,4 +205,89 @@ export const Metric = forwardRef<MetricHandle, MetricProps>(function Metric(prop
   });
 });
 
+export interface DashboardProps extends DashboardConfig {
+  /** Inline styles applied to the React host element. */
+  style?: CSSProperties;
+}
+
+export interface DashboardHandle {
+  getDashboard(): DashboardInstance | null;
+  getElement(): HTMLDivElement | null;
+}
+
+function toDashboardConfig(props: DashboardProps): DashboardConfig {
+  const config: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(props)) {
+    if (key === "style") continue;
+    if (value !== undefined) config[key] = value;
+  }
+  return config as unknown as DashboardConfig;
+}
+
+/**
+ * React wrapper around the vanilla dashboard engine. React renders only a host
+ * element; the dashboard and its child components are created in an effect so
+ * server rendering never touches the DOM. Existing widget engines are
+ * reconciled when dashboard props change.
+ */
+export const Dashboard = forwardRef<DashboardHandle, DashboardProps>(
+  function Dashboard(props, ref) {
+    const hostRef = useRef<HTMLDivElement | null>(null);
+    const dashboardRef = useRef<DashboardInstance | null>(null);
+    const mountedRef = useRef(false);
+
+    useEffect(() => {
+      const host = hostRef.current;
+      if (!host) return;
+      const dashboard = createDashboard(toDashboardConfig(props));
+      dashboard.render(host);
+      dashboardRef.current = dashboard;
+      return () => {
+        dashboard.destroy();
+        dashboardRef.current = null;
+      };
+    }, []);
+
+    useEffect(() => {
+      if (!mountedRef.current) {
+        mountedRef.current = true;
+        return;
+      }
+      dashboardRef.current?.update(toDashboardConfig(props));
+    });
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        getDashboard: () => dashboardRef.current,
+        getElement: () => hostRef.current
+      }),
+      []
+    );
+
+    return createElement("div", {
+      ref: hostRef,
+      className: "numviz-react-dashboard",
+      style: props.style,
+      "data-numviz-react": "dashboard"
+    });
+  }
+);
+
+export type {
+  DashboardConfig,
+  DashboardComponent,
+  DashboardChartComponent,
+  DashboardTableComponent,
+  DashboardMetricComponent,
+  DashboardHeadingComponent,
+  DashboardTextComponent,
+  DashboardDescriptionComponent,
+  DashboardDividerComponent,
+  DashboardImageComponent,
+  DashboardCustomComponent,
+  DashboardWidget,
+  DashboardLayout,
+  DashboardWidgetStyle
+} from "../dashboard/types.js";
 export type { TableRow, MetricResult, MetricConfig };

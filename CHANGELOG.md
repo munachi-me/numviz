@@ -2,6 +2,65 @@
 
 All notable changes to Numviz are documented in this file.
 
+## [0.5.0] - 2026-11-26
+
+### Added
+
+- Dashboard composition engine with `createDashboard`. Dashboards combine
+  charts, tables, metrics, headings, text, descriptions, dividers, images and
+  explicit custom components.
+- Per-component datasets: every dashboard widget owns its data and can use a
+  different source, shape or column set. Metric widgets accept either `name` or
+  `title`.
+- Responsive grid layout with base, `sm`, `md`, `lg` and `xl` column counts,
+  configurable breakpoints, explicit rows and automatic row sizing, column and
+  row gaps, padding and alignment.
+- Widget placement with column and row starts, column and row spans, ordering,
+  width, height, minimum dimensions and self-alignment. Column placement is
+  emitted per breakpoint and clamped to the active column count, so a wide
+  component never creates implicit columns on a narrow screen.
+- Dashboard `title`, `description`, `header`, `footer`, theme inheritance,
+  background, global locale/currency formatting and dashboard-level widget style.
+- Per-widget visual overrides for background, border, radius, padding, shadow and
+  class names, kept separate from layout configuration.
+- Dashboard lifecycle: `render`, `update`, `refresh`, `getWidget` and `destroy`.
+  Updates reconcile widgets by id, preserve table and metric engines, recreate
+  charts and destroy removed widgets.
+- Unique scoped layout CSS per dashboard instance, preventing grid and breakpoint
+  styles from leaking between dashboards.
+- Safe custom component extension: callbacks return DOM nodes, plain text or
+  `null`; returned strings are inserted as text and never parsed as HTML.
+- React `Dashboard` component with server-rendering-safe host output, prop
+  reconciliation and an imperative handle.
+- `dashboard.html` example, dashboard API documentation, React integration
+  guidance and root public API tests.
+
+### Changed
+
+- The frozen default namespace now includes `createDashboard` alongside
+  `createChart`, `createTable`, `createMetric`, `version` and `NumvizError`.
+- Dashboard theme tokens cascade into child widgets unless a widget supplies its
+  own theme values; dashboard formatting supplies locale and currency defaults.
+
+### Verified
+
+- Dashboard tests cover composition, independent datasets, content and custom
+  components, safe text handling, responsive layout and placement, theme and
+  formatting inheritance, widget overrides, updates, table state preservation,
+  refresh, teardown, re-rendering, style isolation and validation.
+- React tests cover server rendering, mounting, prop reconciliation, individual
+  component composition and dashboard teardown.
+- The packed consumer test creates a dashboard without a DOM, verifies namespace
+  equality and resolved layout/format, then separately server-renders the React
+  dashboard and typechecks dashboard declarations.
+- The dashboard example was rendered in a browser and checked for responsive
+  cards, charts, metrics and table output.
+
+### Compatibility
+
+- No breaking changes to chart, table, metric or React component APIs.
+  `@munachi-me/numviz` remains the package name.
+
 ## [0.4.1] - 2026-11-26
 
 ### Verified
