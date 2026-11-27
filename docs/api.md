@@ -1,4 +1,4 @@
-# Numviz API reference — 1.0.1
+# Numviz API reference — 1.0.2
 
 ## Entry points
 
