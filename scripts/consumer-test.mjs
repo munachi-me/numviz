@@ -109,6 +109,9 @@ const chart = createChart({
 });
 if (chart.config.y !== "revenue") throw new Error("config was not resolved");
 if (chart.data.rows[0].values.revenue !== 1200) throw new Error("numeric strings were not normalized");
+chart.update({ type: "line", data: [{ month: "Mar", revenue: 2400 }], x: "month", y: "revenue", theme: { colors: { primary: "#7057D9" } } });
+if (chart.config.type !== "line" || chart.data.rows.length !== 1) throw new Error("chart update failed");
+if (chart.config.theme.accent !== "#7057D9") throw new Error("theme colour aliases failed");
 
 let domError;
 try {
@@ -219,7 +222,7 @@ if (!dashboardDomError || dashboardDomError.code !== "NO_DOM") {
 }
 dashboard.destroy();
 
-console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "no-dom", "table", "metric", "dashboard", "react-entry"] }));
+console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "chart-update", "theme-colours", "no-dom", "table", "metric", "dashboard", "react-entry"] }));
 `
   );
   const runtimeOutput = run(process.execPath, ["runtime-check.mjs"], { cwd: fixture }).trim();
@@ -255,7 +258,7 @@ console.log(JSON.stringify({ version, checked: ["default", "named", "namespace",
     path.join(fixture, "react-check.mjs"),
     `import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Dashboard, DataTable, Metric } from "${packageName}/react";
+import { Chart, Dashboard, DashboardWidget, DataTable, Metric } from "${packageName}/react";
 
 const data = [
   { region: "North", revenue: 100, salary: 120000 },
@@ -270,6 +273,33 @@ if (!tableHtml.includes('data-numviz-react="table"')) {
 }
 if (tableHtml.includes("<table")) {
   throw new Error("React DataTable touched the DOM during server rendering");
+}
+
+const chartHtml = renderToStaticMarkup(
+  createElement(Chart, { type: "bar", data, x: "region", y: "revenue" })
+);
+if (!chartHtml.includes('data-numviz-react="chart"')) {
+  throw new Error("React Chart SSR host is missing");
+}
+if (chartHtml.includes("<svg")) {
+  throw new Error("React Chart touched the DOM during server rendering");
+}
+
+const widgetHtml = renderToStaticMarkup(
+  createElement(DashboardWidget, {
+    id: "revenue",
+    type: "metric",
+    name: "Revenue",
+    data,
+    column: "revenue",
+    aggregation: "sum"
+  })
+);
+if (!widgetHtml.includes('data-numviz-react="dashboard-widget"')) {
+  throw new Error("React DashboardWidget SSR host is missing");
+}
+if (widgetHtml.includes("numviz-dashboard__widget")) {
+  throw new Error("React DashboardWidget touched the DOM during server rendering");
 }
 
 const metricHtml = renderToStaticMarkup(
@@ -290,19 +320,18 @@ if (metricHtml.includes("$300.00")) {
 }
 
 const dashboardHtml = renderToStaticMarkup(
-  createElement(Dashboard, {
-    title: "Overview",
-    components: [
-      {
-        id: "total",
-        type: "metric",
-        name: "Revenue",
-        data,
-        column: "revenue",
-        aggregation: "sum"
-      }
-    ]
-  })
+  createElement(
+    Dashboard,
+    { title: "Overview" },
+    createElement(DashboardWidget, {
+      id: "total",
+      type: "metric",
+      name: "Revenue",
+      data,
+      column: "revenue",
+      aggregation: "sum"
+    })
+  )
 );
 if (!dashboardHtml.includes('data-numviz-react="dashboard"')) {
   throw new Error("React Dashboard SSR host is missing");
@@ -311,7 +340,7 @@ if (dashboardHtml.includes("numviz-dashboard__title")) {
   throw new Error("React Dashboard touched the DOM during server rendering");
 }
 
-console.log(JSON.stringify({ entry: "react", ssr: true, exports: ["Dashboard", "DataTable", "Metric"] }));`
+console.log(JSON.stringify({ entry: "react", ssr: true, exports: ["Chart", "Dashboard", "DashboardWidget", "DataTable", "Metric"] }));`
   );
   const reactOutput = run(process.execPath, ["react-check.mjs"], { cwd: fixture }).trim();
   console.log(`react imports: ${reactOutput}`);
@@ -336,11 +365,13 @@ const config: ChartConfig = {
   data: [{ month: "Jan", revenue: 1200 }],
   x: "month",
   y: "revenue",
-  theme: { mode: "dark", chartPalette: ["#6366F1"] }
+  className: "consumer-chart",
+  theme: { mode: "dark", colors: { primary: "#7057D9" }, chartPalette: ["#6366F1"] }
 };
 
 const namedChart = createChart(config);
 const namespaceChart = Numviz.createChart(config);
+namedChart.update({ ...config, type: "line" });
 namedChart.render(document.body);
 namespaceChart.destroy();
 
@@ -400,11 +431,16 @@ console.log(error.code, Numviz.version);
   writeFileSync(
     path.join(fixture, "react-consumer.tsx"),
     `import {
+  Chart,
   Dashboard,
+  DashboardWidget,
   DataTable,
   Metric,
+  type ChartHandle,
+  type ChartProps,
   type DashboardHandle,
   type DashboardProps,
+  type DashboardWidgetHandle,
   type DataTableHandle,
   type DataTableProps,
   type MetricHandle,
@@ -427,6 +463,15 @@ const table = (
     selectedRows={[0]}
   />
 );
+
+const chartProps: ChartProps = {
+  type: "bar",
+  data: [{ region: "North", revenue: 120 }],
+  x: "region",
+  y: "revenue",
+  theme: { mode: "dark", colors: { primary: "#7057D9" } }
+};
+const chart = <Chart {...chartProps} style={{ minHeight: 240 }} />;
 
 const metricProps: MetricProps = {
   name: "Revenue",
@@ -451,26 +496,48 @@ const dashboardProps: DashboardProps = {
     { id: "table", type: "table", data: [{ name: "Ada" }] }
   ]
 };
-const dashboard = <Dashboard {...dashboardProps} style={{ minHeight: 320 }} />;
+const dashboard = (
+  <Dashboard {...dashboardProps} style={{ minHeight: 320 }}>
+    <DashboardWidget id="chart" type="chart" chartType="line" data={[{ month: "Jan", revenue: 120 }]} x="month" y="revenue" />
+  </Dashboard>
+);
+const widget = (
+  <DashboardWidget
+    id="revenue"
+    type="metric"
+    name="Revenue"
+    data={[{ revenue: 120 }]}
+    column="revenue"
+    aggregation="sum"
+  />
+);
 
 function readHandles(
   tableHandle: DataTableHandle | null,
   metricHandle: MetricHandle | null,
-  dashboardHandle: DashboardHandle | null
+  dashboardHandle: DashboardHandle | null,
+  chartHandle: ChartHandle | null,
+  widgetHandle: DashboardWidgetHandle | null
 ): {
   state: TableState | undefined;
   result: MetricResult | undefined;
   widgets: number | undefined;
+  chartType: string | undefined;
+  widgetId: string | undefined;
 } {
   return {
     state: tableHandle?.getTable()?.getState(),
     result: metricHandle?.getMetric()?.result,
-    widgets: dashboardHandle?.getDashboard()?.widgets.length
+    widgets: dashboardHandle?.getDashboard()?.widgets.length,
+    chartType: chartHandle?.getChart()?.config.type,
+    widgetId: widgetHandle?.getWidget()?.component.id
   };
 }
 void table;
 void metric;
 void dashboard;
+void chart;
+void widget;
 void readHandles;
 `
   );

@@ -2,6 +2,61 @@
 
 All notable changes to Numviz are documented in this file.
 
+## [0.6.0] - 2026-11-26
+
+### Added
+
+- React `Chart` component with server-rendering-safe host output, an imperative
+  `ChartHandle`, in-place updates for dynamic data and callbacks, and
+  structural prop comparison so equal configurations do not redraw.
+- React `DashboardWidget` component for rendering one dashboard widget outside
+  a full dashboard. It accepts widget options directly or a `component` /
+  `config` object and exposes the underlying dashboard and widget through a ref.
+- Declarative dashboard composition: `Dashboard` now accepts `DashboardWidget`
+  children, including inside fragments, and merges them with a `components`
+  array in order.
+- `Chart.update(config)` on the vanilla chart instance. It validates and
+  normalizes the replacement configuration, keeps the instance and redraws in
+  the same container. Invalid updates leave the previous chart intact.
+- `ChartConfig.className` for CSS customisation of the chart root.
+- `ThemeConfig.colors` aliases. `primary` maps to `accent`, and `background`,
+  `surface`, `surfaceElevated`, `text`, `mutedText`, `border`, `grid`,
+  `positive`, `warning`, `danger` and `info` map to the matching token names.
+  Explicit token names take precedence.
+- Structural configuration comparison in every React wrapper. `Chart`,
+  `Dashboard`, `DashboardWidget`, `DataTable` and `Metric` skip engine updates
+  when a parent re-renders with equal props.
+- `chart-updates.html` example showing in-place chart updates, a custom chart
+  class and the friendly dark-theme colour aliases.
+
+### Changed
+
+- Dashboard reconciliation now updates matching chart widgets in place instead
+  of recreating them, preserving the chart instance across dashboard updates.
+- The dashboard widget type exported from the React entry is now named
+  `DashboardWidgetInfo` so the new `DashboardWidget` component can use the
+  natural public name. The core entry continues to export the `DashboardWidget`
+  type.
+- Theme validation now reports `theme.colors.<name>` paths for invalid aliases.
+
+### Verified
+
+- 206 tests pass, including chart updates, className, theme colour aliases,
+  React Chart SSR and updates, DashboardWidget standalone rendering, declarative
+  dashboard children and stable prop updates.
+- `npm run verify` covers type checking, linting, tests, production builds and a
+  packed consumer fixture. The fixture verifies chart updates and colour
+  aliases at runtime, server-renders `Chart` and `DashboardWidget`, and
+  typechecks the new React declarations.
+- Next.js App Router and Pages Router guidance was updated for the new
+  components; all React components still defer DOM work to effects and never
+  access `window` or `document` during server rendering.
+
+### Compatibility
+
+- No breaking changes to chart, table, metric, dashboard or existing React
+  component APIs. `@munachi-me/numviz` remains the package name.
+
 ## [0.5.0] - 2026-11-26
 
 ### Added

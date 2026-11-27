@@ -74,20 +74,21 @@ export function resolveThemeMode(
 export function resolveTheme(theme: ThemeConfig = {}, view?: MediaQueryWindow | null): ThemeTokens {
   const mode = resolveThemeMode(theme.mode, view);
   const base = mode === "dark" ? DARK_BASE : LIGHT_BASE;
+  const colors = theme.colors;
   return {
     mode,
-    background: theme.background ?? base.background,
-    surface: theme.surface ?? base.surface,
-    surfaceElevated: theme.surfaceElevated ?? base.surfaceElevated,
-    text: theme.text ?? base.text,
-    mutedText: theme.mutedText ?? base.mutedText,
-    border: theme.border ?? base.border,
-    grid: theme.grid ?? base.grid,
-    accent: theme.accent ?? base.accent,
-    positive: theme.positive ?? base.positive,
-    warning: theme.warning ?? base.warning,
-    danger: theme.danger ?? base.danger,
-    info: theme.info ?? base.info,
+    background: theme.background ?? colors?.background ?? base.background,
+    surface: theme.surface ?? colors?.surface ?? base.surface,
+    surfaceElevated: theme.surfaceElevated ?? colors?.surfaceElevated ?? base.surfaceElevated,
+    text: theme.text ?? colors?.text ?? base.text,
+    mutedText: theme.mutedText ?? colors?.mutedText ?? base.mutedText,
+    border: theme.border ?? colors?.border ?? base.border,
+    grid: theme.grid ?? colors?.grid ?? base.grid,
+    accent: theme.accent ?? colors?.primary ?? base.accent,
+    positive: theme.positive ?? colors?.positive ?? base.positive,
+    warning: theme.warning ?? colors?.warning ?? base.warning,
+    danger: theme.danger ?? colors?.danger ?? base.danger,
+    info: theme.info ?? colors?.info ?? base.info,
     fontFamily: theme.fontFamily ?? DEFAULT_FONT_FAMILY,
     borderRadius: theme.borderRadius ?? 12,
     chartPalette:

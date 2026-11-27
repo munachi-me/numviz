@@ -1,4 +1,4 @@
-# Numviz API reference — 0.5.0
+# Numviz API reference — 0.6.0
 
 ## Entry points
 
@@ -63,6 +63,7 @@ Validation happens immediately; rendering happens in `render()`.
 | `height` | `number` | `380` | SVG viewBox height |
 | `palette` | `string[]` | theme palette | Mark colours, cycled |
 | `background` | `string` | theme background | Background override |
+| `className` | `string` | — | Extra class name on the chart root |
 | `legend` | `boolean \| LegendConfig` | multi-series / pie | Legend display |
 | `labels` | `boolean \| LabelConfig` | `false` | Data labels |
 | `tooltip` | `boolean \| TooltipConfig` | `true` | Tooltips |
@@ -102,11 +103,13 @@ Series fields must be unique and numeric. Unknown or non-numeric fields throw
 | `element` | Rendered root element or `null` |
 | `isDestroyed` | Lifecycle flag |
 | `render(target)` | Render into a selector or element; returns the chart |
+| `update(config)` | Validate and replace configuration, then redraw in place |
 | `setSeriesVisible(index, visible)` | Toggle a series like a legend click |
 | `destroy()` | Remove output, listeners and mark the chart destroyed |
 
-Calling `render()` again removes previous output. Rendering a destroyed chart
-throws `DESTROYED`.
+Calling `render()` again removes previous output. `update()` keeps the chart
+instance, normalizes the new data and redraws into the same container. Rendering
+or updating a destroyed chart throws `DESTROYED`.
 
 ## `createTable(config): Table`
 
@@ -467,11 +470,15 @@ accepts a string, an object with `text` and `className`, or `false`.
 
 ## React entry point
 
-`@munachi-me/numviz/react` exports `Dashboard`, `DataTable`, `Metric` and the
-`DashboardProps`, `DashboardHandle`, `DataTableProps`, `DataTableHandle`,
-`MetricProps` and `MetricHandle` types. React is an optional peer dependency
-(`>=18`) and the core entry never imports it. All components render only a host
-element during server rendering. See [frameworks.md](./frameworks.md) for
+`@munachi-me/numviz/react` exports `Chart`, `Dashboard`, `DashboardWidget`,
+`DataTable`, `Metric` and the matching `ChartProps`, `ChartHandle`,
+`DashboardProps`, `DashboardHandle`, `DashboardWidgetProps`,
+`DashboardWidgetHandle`, `DataTableProps`, `DataTableHandle`, `MetricProps` and
+`MetricHandle` types. `Dashboard` accepts either a `components` array or direct
+`DashboardWidget` children. React is an optional peer dependency (`>=18`) and
+the core entry never imports it. All components render only a host element
+during server rendering, and prop updates are structurally compared so equal
+configurations do not rebuild engines. See [frameworks.md](./frameworks.md) for
 Next.js guidance.
 
 ## Axes
@@ -579,8 +586,25 @@ interface ChartClickEvent {
 | `fontFamily`, `borderRadius` | Typography and shape |
 | `chartPalette` | Default series colours |
 
-Every token in the table is configurable through `ThemeConfig`. Charts and
-tables expose CSS custom properties (`--nv-*`, including
+Every token in the table is configurable through `ThemeConfig`. The optional
+`colors` object provides friendly aliases: `primary` maps to `accent`;
+`background`, `surface`, `surfaceElevated`, `text`, `mutedText`, `border`,
+`grid`, `positive`, `warning`, `danger` and `info` map to the same token names.
+Explicit token names take precedence over aliases.
+
+```ts
+const theme = {
+  mode: "dark",
+  colors: {
+    primary: "#7057D9",
+    background: "#111318",
+    surface: "#1B1E26",
+    text: "#FFFFFF"
+  }
+};
+```
+
+Charts and tables expose CSS custom properties (`--nv-*`, including
 `--nv-surface-elevated`, `--nv-positive`, `--nv-warning`, `--nv-danger`,
 `--nv-info` and `--nv-animation-duration`) and documented class hooks so
 applications can restyle output without forking the renderer.
@@ -606,8 +630,8 @@ offending `path`. Validated values include:
 
 - `theme` string tokens (`accent`, `fontFamily`, `background`, `surface`,
   `surfaceElevated`, `text`, `mutedText`, `border`, `grid`, `positive`,
-  `warning`, `danger`, `info`), `theme.chartPalette` entries and
-  `theme.borderRadius`.
+  `warning`, `danger`, `info`), `theme.colors` aliases, `theme.chartPalette`
+  entries and `theme.borderRadius`.
 - `series` must be a non-empty array of objects with non-empty `field`,
   optional non-empty `label` and `color`, and unique fields.
 - `legend.show`, `legend.interactive`, `legend.position`.

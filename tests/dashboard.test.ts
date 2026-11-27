@@ -269,7 +269,7 @@ describe("dashboard composition", () => {
     dashboard.destroy();
   });
 
-  it("reconciles updates, preserves table state and replaces chart instances", () => {
+  it("reconciles updates and preserves table, chart and metric engines", () => {
     const container = mount();
     const config = baseConfig();
     const dashboard = createDashboard(config).render(container);
@@ -303,9 +303,9 @@ describe("dashboard composition", () => {
     expect(container.querySelector(".numviz-dashboard__title")?.textContent).toBe("Updated");
     expect(dashboard.getWidget("records")?.instance).toBe(table);
     expect(dashboard.getWidget("revenue")?.instance).toBe(metric);
-    expect(dashboard.getWidget("sales")?.instance).not.toBe(chart);
+    expect(dashboard.getWidget("sales")?.instance).toBe(chart);
     expect(table?.isDestroyed).toBe(false);
-    expect(chart?.isDestroyed).toBe(true);
+    expect(chart?.isDestroyed).toBe(false);
     expect(table?.getState().sort).toEqual({ field: "salary", direction: "desc" });
     expect(container.querySelector(".numviz-metric__title")?.textContent).toBe("Net revenue");
     expect(
@@ -321,6 +321,30 @@ describe("dashboard composition", () => {
     });
     expect(dashboard.getWidget("sales")).toBeNull();
     expect(container.querySelector('[data-nv-component-id="sales"]')).toBeNull();
+    dashboard.destroy();
+  });
+
+  it("updates chart widgets in place", () => {
+    const container = mount();
+    const config = baseConfig();
+    const dashboard = createDashboard(config).render(container);
+    const chart = dashboard.getWidget("sales")?.instance;
+    expect(container.querySelectorAll('[data-numviz-part="bar"]')).toHaveLength(3);
+
+    dashboard.update({
+      ...config,
+      components: config.components.map((component) =>
+        component.id === "sales"
+          ? {
+              ...component,
+              data: [...sales, { region: "West", revenue: 400, orders: 1, month: "Mar" }]
+            }
+          : component
+      )
+    });
+
+    expect(dashboard.getWidget("sales")?.instance).toBe(chart);
+    expect(container.querySelectorAll('[data-numviz-part="bar"]')).toHaveLength(4);
     dashboard.destroy();
   });
 

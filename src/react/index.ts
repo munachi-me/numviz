@@ -1,17 +1,24 @@
 "use client";
 
 import {
+  Children,
+  Fragment,
   createElement,
   forwardRef,
+  isValidElement,
   useEffect,
   useImperativeHandle,
   useRef,
-  type CSSProperties
+  type CSSProperties,
+  type ReactNode
 } from "react";
+import { createChart } from "../charts/createChart.js";
 import { createDashboard } from "../dashboard/dashboard.js";
 import type {
   Dashboard as DashboardInstance,
-  DashboardConfig
+  DashboardComponent,
+  DashboardConfig,
+  DashboardWidget as DashboardWidgetInfo
 } from "../dashboard/types.js";
 import { createMetric } from "../metric/metric.js";
 import type {
@@ -26,6 +33,8 @@ import type {
   TableRow,
   TableSortState
 } from "../table/types.js";
+import type { Chart as ChartInstance, ChartConfig } from "../types.js";
+import { useStableValue } from "./stable.js";
 
 export interface DataTableProps extends Omit<TableConfig, "loading" | "error"> {
   /** Controlled sort state. Omit for an uncontrolled table. */
@@ -79,11 +88,13 @@ export const DataTable = forwardRef<DataTableHandle, DataTableProps>(function Da
 ) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const tableRef = useRef<Table | null>(null);
+  const mountedRef = useRef(false);
+  const config = useStableValue(toTableConfig(props));
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const table = createTable(toTableConfig(props));
+    const table = createTable(config);
     table.render(host);
     tableRef.current = table;
     return () => {
@@ -93,8 +104,12 @@ export const DataTable = forwardRef<DataTableHandle, DataTableProps>(function Da
   }, []);
 
   useEffect(() => {
-    tableRef.current?.update(toTableConfig(props));
-  });
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    tableRef.current?.update(config);
+  }, [config]);
 
   useEffect(() => {
     if (props.sort === undefined) return;
@@ -171,11 +186,13 @@ function toMetricConfig(props: MetricProps): MetricConfig {
 export const Metric = forwardRef<MetricHandle, MetricProps>(function Metric(props, ref) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const metricRef = useRef<MetricInstance | null>(null);
+  const mountedRef = useRef(false);
+  const config = useStableValue(toMetricConfig(props));
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const metric = createMetric(toMetricConfig(props));
+    const metric = createMetric(config);
     metric.render(host);
     metricRef.current = metric;
     return () => {
@@ -185,8 +202,12 @@ export const Metric = forwardRef<MetricHandle, MetricProps>(function Metric(prop
   }, []);
 
   useEffect(() => {
-    metricRef.current?.update(toMetricConfig(props));
-  });
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    metricRef.current?.update(config);
+  }, [config]);
 
   useImperativeHandle(
     ref,
@@ -205,41 +226,131 @@ export const Metric = forwardRef<MetricHandle, MetricProps>(function Metric(prop
   });
 });
 
-export interface DashboardProps extends DashboardConfig {
+export interface ChartProps extends ChartConfig {
   /** Inline styles applied to the React host element. */
   style?: CSSProperties;
 }
 
-export interface DashboardHandle {
-  getDashboard(): DashboardInstance | null;
+export interface ChartHandle {
+  getChart(): ChartInstance | null;
   getElement(): HTMLDivElement | null;
 }
 
-function toDashboardConfig(props: DashboardProps): DashboardConfig {
+function toChartConfig(props: ChartProps): ChartConfig {
   const config: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(props)) {
     if (key === "style") continue;
     if (value !== undefined) config[key] = value;
   }
-  return config as unknown as DashboardConfig;
+  return config as unknown as ChartConfig;
 }
 
 /**
- * React wrapper around the vanilla dashboard engine. React renders only a host
- * element; the dashboard and its child components are created in an effect so
- * server rendering never touches the DOM. Existing widget engines are
- * reconciled when dashboard props change.
+ * React wrapper around the vanilla chart engine. React renders only a host
+ * element; the chart is created in an effect so server rendering never touches
+ * the DOM. Data and options update in place when props change.
  */
-export const Dashboard = forwardRef<DashboardHandle, DashboardProps>(
-  function Dashboard(props, ref) {
+export const Chart = forwardRef<ChartHandle, ChartProps>(function Chart(props, ref) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<ChartInstance | null>(null);
+  const mountedRef = useRef(false);
+  const config = useStableValue(toChartConfig(props));
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const chart = createChart(config);
+    chart.render(host);
+    chartRef.current = chart;
+    return () => {
+      chart.destroy();
+      chartRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    chartRef.current?.update(config);
+  }, [config]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getChart: () => chartRef.current,
+      getElement: () => hostRef.current
+    }),
+    []
+  );
+
+  return createElement("div", {
+    ref: hostRef,
+    className: "numviz-react-chart",
+    style: props.style,
+    "data-numviz-react": "chart"
+  });
+});
+
+export type DashboardWidgetProps =
+  | (DashboardComponent & {
+      readonly component?: undefined;
+      readonly config?: undefined;
+      readonly containerStyle?: CSSProperties;
+      readonly hostStyle?: CSSProperties;
+    })
+  | {
+      readonly component: DashboardComponent;
+      readonly config?: undefined;
+      readonly containerStyle?: CSSProperties;
+      readonly hostStyle?: CSSProperties;
+      readonly style?: CSSProperties;
+    }
+  | {
+      readonly config: DashboardComponent;
+      readonly component?: undefined;
+      readonly containerStyle?: CSSProperties;
+      readonly hostStyle?: CSSProperties;
+      readonly style?: CSSProperties;
+    };
+
+export interface DashboardWidgetHandle {
+  getDashboard(): DashboardInstance | null;
+  getWidget(id?: string): DashboardWidgetInfo | null;
+  getElement(): HTMLDivElement | null;
+}
+
+function toWidgetComponent(props: DashboardWidgetProps): DashboardComponent {
+  if ("component" in props && props.component) return props.component;
+  if ("config" in props && props.config) return props.config;
+  const config: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(props)) {
+    if (key === "containerStyle" || key === "hostStyle" || key === "component" || key === "config") {
+      continue;
+    }
+    if (value !== undefined) config[key] = value;
+  }
+  return config as unknown as DashboardComponent;
+}
+
+/**
+ * Renders one dashboard widget outside a full dashboard. It can also be passed
+ * as a direct child of `Dashboard` to declare a widget in JSX.
+ */
+export const DashboardWidget = forwardRef<DashboardWidgetHandle, DashboardWidgetProps>(
+  function DashboardWidget(props, ref) {
     const hostRef = useRef<HTMLDivElement | null>(null);
     const dashboardRef = useRef<DashboardInstance | null>(null);
     const mountedRef = useRef(false);
+    const component = useStableValue(toWidgetComponent(props));
+    const componentRef = useRef(component);
+    componentRef.current = component;
 
     useEffect(() => {
       const host = hostRef.current;
       if (!host) return;
-      const dashboard = createDashboard(toDashboardConfig(props));
+      const dashboard = createDashboard({ components: [component], layout: { columns: 1 } });
       dashboard.render(host);
       dashboardRef.current = dashboard;
       return () => {
@@ -253,8 +364,105 @@ export const Dashboard = forwardRef<DashboardHandle, DashboardProps>(
         mountedRef.current = true;
         return;
       }
-      dashboardRef.current?.update(toDashboardConfig(props));
+      dashboardRef.current?.update({ components: [component], layout: { columns: 1 } });
+    }, [component]);
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        getDashboard: () => dashboardRef.current,
+        getWidget: (id?: string) =>
+          dashboardRef.current?.getWidget(id ?? componentRef.current.id) ?? null,
+        getElement: () => hostRef.current
+      }),
+      []
+    );
+
+    const componentStyle =
+      "component" in props || "config" in props
+        ? (props.style as CSSProperties | undefined)
+        : undefined;
+    return createElement("div", {
+      ref: hostRef,
+      className: "numviz-react-dashboard-widget",
+      style: props.containerStyle ?? props.hostStyle ?? componentStyle,
+      "data-numviz-react": "dashboard-widget"
     });
+  }
+);
+
+export interface DashboardProps extends Omit<DashboardConfig, "components"> {
+  /** Widgets to render. Widgets can also be declared as `DashboardWidget` children. */
+  components?: readonly DashboardComponent[];
+  /** Direct `DashboardWidget` children declaring additional widgets. */
+  children?: ReactNode;
+  /** Inline styles applied to the React host element. */
+  style?: CSSProperties;
+}
+
+function collectDashboardWidgets(children: ReactNode): DashboardComponent[] {
+  const components: DashboardComponent[] = [];
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child)) return;
+    if (child.type === DashboardWidget) {
+      components.push(toWidgetComponent(child.props as DashboardWidgetProps));
+      return;
+    }
+    if (child.type === Fragment) {
+      components.push(
+        ...collectDashboardWidgets((child.props as { children?: ReactNode }).children)
+      );
+    }
+  });
+  return components;
+}
+
+export interface DashboardHandle {
+  getDashboard(): DashboardInstance | null;
+  getElement(): HTMLDivElement | null;
+}
+
+function toDashboardConfig(props: DashboardProps): DashboardConfig {
+  const { children, components, ...rest } = props;
+  delete rest.style;
+  return {
+    ...rest,
+    components: [...(components ?? []), ...collectDashboardWidgets(children)]
+  } as DashboardConfig;
+}
+
+/**
+ * React wrapper around the vanilla dashboard engine. React renders only a host
+ * element; the dashboard and its child components are created in an effect so
+ * server rendering never touches the DOM. Existing widget engines are
+ * reconciled when dashboard props change.
+ */
+export const Dashboard = forwardRef<DashboardHandle, DashboardProps>(
+  function Dashboard(props, ref) {
+    const hostRef = useRef<HTMLDivElement | null>(null);
+    const dashboardRef = useRef<DashboardInstance | null>(null);
+    const mountedRef = useRef(false);
+    const config = useStableValue(toDashboardConfig(props));
+
+    useEffect(() => {
+      const host = hostRef.current;
+      if (!host) return;
+      const dashboard = createDashboard(config);
+      dashboard.render(host);
+      dashboardRef.current = dashboard;
+      return () => {
+        dashboard.destroy();
+        dashboardRef.current = null;
+      };
+    }, []);
+
+    useEffect(() => {
+      if (!mountedRef.current) {
+        mountedRef.current = true;
+        return;
+      }
+      dashboardRef.current?.update(config);
+    }, [config]);
 
     useImperativeHandle(
       ref,
@@ -286,8 +494,8 @@ export type {
   DashboardDividerComponent,
   DashboardImageComponent,
   DashboardCustomComponent,
-  DashboardWidget,
   DashboardLayout,
   DashboardWidgetStyle
 } from "../dashboard/types.js";
+export type { DashboardWidgetInfo };
 export type { TableRow, MetricResult, MetricConfig };

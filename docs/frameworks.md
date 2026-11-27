@@ -66,8 +66,8 @@ export function SalesDashboard({ revenue, monthly, employees }: {
 ```
 
 Dashboard props are reconciled on every render. Matching widget ids and types
-keep their table or metric engine; charts are recreated. Access the underlying
-engine through a ref:
+keep their table, metric or chart engine and update it in place. Access the
+underlying engine through a ref:
 
 ```tsx
 import { useRef } from "react";
@@ -79,8 +79,87 @@ const ref = useRef<DashboardHandle>(null);
 // ref.current?.getDashboard()?.getWidget("revenue");
 ```
 
-`DataTable` and `Metric` remain independently usable. Mix them in any React
-layout without mounting the full dashboard wrapper.
+Widgets can also be declared as `DashboardWidget` children. `components` and
+children are merged in order:
+
+```tsx
+<Dashboard title="Sales Analytics">
+  <DashboardWidget
+    id="revenue"
+    type="metric"
+    name="Total Revenue"
+    data={revenue}
+    column="revenue"
+    aggregation="sum"
+  />
+  <DashboardWidget
+    id="sales"
+    type="chart"
+    chartType="bar"
+    data={monthly}
+    x="month"
+    y="revenue"
+  />
+</Dashboard>
+```
+
+`Chart`, `DashboardWidget`, `DataTable` and `Metric` remain independently usable.
+Mix them in any React layout without mounting the full dashboard wrapper.
+
+## Chart
+
+`Chart` accepts every `ChartConfig` option plus React `style` and renders a host
+`<div data-numviz-react="chart">`. The chart engine is created in an effect and
+updates in place when data or options change.
+
+```tsx
+import { Chart } from "@munachi-me/numviz/react";
+
+export function RevenueChart({ rows }: { rows: Record<string, unknown>[] }) {
+  return (
+    <Chart
+      type="line"
+      data={rows}
+      x="month"
+      y="revenue"
+      title="Revenue"
+      onClick={(event) => console.log(event.label, event.value)}
+    />
+  );
+}
+```
+
+Props are compared structurally. A parent re-render with an equal configuration
+does not call `chart.update`; changed data or options update the same chart
+instance.
+
+## DashboardWidget
+
+`DashboardWidget` renders one widget outside a full dashboard. Pass widget
+options directly, or use the `component` / `config` prop with a
+`DashboardComponent` object.
+
+```tsx
+import { DashboardWidget } from "@munachi-me/numviz/react";
+
+export function RevenueCard({ rows }: { rows: Record<string, unknown>[] }) {
+  return (
+    <DashboardWidget
+      id="revenue"
+      type="metric"
+      name="Total Revenue"
+      data={rows}
+      column="revenue"
+      aggregation="sum"
+      containerStyle={{ maxWidth: 320 }}
+    />
+  );
+}
+```
+
+Use `containerStyle` (or `hostStyle`) for the React host element. In the direct
+props form, `style` belongs to the dashboard widget surface; with `component` or
+`config`, `style` applies to the host element.
 
 ## DataTable
 
@@ -245,9 +324,9 @@ Rules of thumb:
 
 - Keep data fetching on the server and pass plain, serializable records to the
   client component.
-- Do not call `createDashboard`, `createTable`, `createMetric` or read
-  `window`/`document` during render or at module scope; the components already
-  defer DOM work to an effect.
+- Do not call `createChart`, `createDashboard`, `createTable`, `createMetric`
+  or read `window`/`document` during render or at module scope; the components
+  already defer DOM work to an effect.
 - `render` callbacks receive row objects on the client. Define them in the
   client component, not in a server-only module.
 - If your page is fully server-rendered and you prefer no client bundle, use the
@@ -268,8 +347,9 @@ const DataTable = dynamic(
 
 ### Server-side rendering notes
 
-- `DataTable` and `Metric` render only their host elements on the server; no
-  `document` or `window` access happens during render.
+- `Chart`, `Dashboard`, `DashboardWidget`, `DataTable` and `Metric` render only
+  their host elements on the server; no `document` or `window` access happens
+  during render.
 - Sorting, searching, pagination and selection work after hydration; metric
   values are computed and rendered after mounting.
 - Pagination renders one page at a time, which keeps large datasets out of the
@@ -280,6 +360,8 @@ const DataTable = dynamic(
 ## Styling parity
 
 The same `theme`, `variant`, `className` and token options apply to vanilla and
-React tables and metrics, because both use one engine and one stylesheet. Theme
-custom properties are set on each component root, so overrides do not leak into
-other components.
+React charts, tables and metrics, because both use one engine and one
+stylesheet. Theme custom properties are set on each component root, so overrides
+do not leak into other components. `ThemeConfig.colors` provides friendly
+aliases such as `primary`, `background`, `surface` and `text` alongside the
+token names.
