@@ -67,6 +67,7 @@ jobs:
         run: |
           npm config set @munachi-me:registry https://npm.pkg.github.com
           npm config set //npm.pkg.github.com/:_authToken "$GITHUB_TOKEN"
+          npm whoami --registry=https://npm.pkg.github.com
           npm publish --registry=https://npm.pkg.github.com --access public --dry-run
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
