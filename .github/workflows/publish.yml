@@ -1,4 +1,4 @@
-name: Publish to npm
+name: Publish packages
 
 on:
   release:
@@ -13,6 +13,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  packages: write
 
 concurrency:
   group: npm-publish
@@ -30,23 +31,55 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: npm ci
       - run: npm run verify
-      - name: Publish stable release
+      - name: Publish stable release to npm
         if: github.event_name == 'release' && !github.event.release.prerelease
         run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Publish prerelease
+      - name: Publish prerelease to npm
         if: github.event_name == 'release' && github.event.release.prerelease
         run: npm publish --access public --tag next --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Verify package only
+      - name: Publish stable release to GitHub Packages
+        if: github.event_name == 'release' && !github.event.release.prerelease
+        run: |
+          npm config set @munachi-me:registry https://npm.pkg.github.com
+          npm config set //npm.pkg.github.com/:_authToken "$NODE_AUTH_TOKEN"
+          npm publish --registry=https://npm.pkg.github.com --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish prerelease to GitHub Packages
+        if: github.event_name == 'release' && github.event.release.prerelease
+        run: |
+          npm config set @munachi-me:registry https://npm.pkg.github.com
+          npm config set //npm.pkg.github.com/:_authToken "$NODE_AUTH_TOKEN"
+          npm publish --registry=https://npm.pkg.github.com --access public --tag next
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify npm package only
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run
         run: npm publish --access public --dry-run
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Publish manually
+      - name: Verify GitHub Packages package only
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        run: |
+          npm config set @munachi-me:registry https://npm.pkg.github.com
+          npm config set //npm.pkg.github.com/:_authToken "$GITHUB_TOKEN"
+          npm publish --registry=https://npm.pkg.github.com --access public --dry-run
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish manually to npm
         if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
         run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish manually to GitHub Packages
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        run: |
+          npm config set @munachi-me:registry https://npm.pkg.github.com
+          npm config set //npm.pkg.github.com/:_authToken "$NODE_AUTH_TOKEN"
+          npm publish --registry=https://npm.pkg.github.com --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
