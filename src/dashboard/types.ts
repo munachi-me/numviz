@@ -394,6 +394,18 @@ export interface DashboardLayout {
   readonly variant?: DashboardVariant;
 }
 
+/** Print-specific dashboard options. */
+export interface DashboardPrintOptions {
+  /** Hide the filter bar when printing. Defaults to true. */
+  readonly hideFilters?: boolean;
+  /** Hide the dashboard header when printing. */
+  readonly hideHeader?: boolean;
+  /** Hide the dashboard footer when printing. */
+  readonly hideFooter?: boolean;
+  /** Avoid breaking widgets across printed pages. Defaults to true. */
+  readonly pageBreak?: "auto" | "avoid";
+}
+
 /** Dashboard configuration accepted by {@link createDashboard}. */
 export interface DashboardConfig {
   readonly title?: string;
@@ -408,6 +420,8 @@ export interface DashboardConfig {
   readonly widgetStyle?: DashboardWidgetStyle;
   /** Filter controls shown above the dashboard grid. */
   readonly filters?: readonly DashboardFilter[];
+  /** Print behaviour. Use `false` to disable print helpers. */
+  readonly print?: boolean | DashboardPrintOptions;
   readonly className?: string;
 }
 
@@ -455,6 +469,7 @@ export interface ResolvedDashboardConfig {
   readonly format: ResolvedDashboardFormat;
   readonly widgetStyle: DashboardWidgetStyle;
   readonly filters: readonly ResolvedDashboardFilter[];
+  readonly print: DashboardPrintOptions | null;
   readonly className?: string;
 }
 
@@ -567,6 +582,8 @@ export interface Dashboard {
     type: K,
     listener: (event: DashboardEventMap[K]) => void
   ): void;
+  /** Apply print options and open the browser print dialog. */
+  print(options?: DashboardPrintOptions): Dashboard;
   /**
    * Generate a standalone HTML dashboard that does not require Numviz or a
    * framework at runtime. Requires Node.js filesystem access.

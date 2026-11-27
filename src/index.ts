@@ -2,6 +2,7 @@ import { createChart } from "./charts/createChart.js";
 import { createDashboard } from "./dashboard/dashboard.js";
 import { isNumvizError, NumvizError } from "./errors.js";
 import { createMetric } from "./metric/metric.js";
+import { createReport } from "./report/report.js";
 import { createTable } from "./table/table.js";
 import type { NumvizNamespace } from "./types.js";
 import { VERSION } from "./version.js";
@@ -15,11 +16,13 @@ const Numviz: NumvizNamespace = Object.freeze({
   createTable,
   createMetric,
   createDashboard,
+  createReport,
   version: VERSION,
   NumvizError
 });
 
-export { createChart, createTable, createMetric, createDashboard };
+export { createChart, createTable, createMetric, createDashboard, createReport };
+export { REPORT_PRESETS } from "./report/report.js";
 export { NumvizError, isNumvizError };
 export { VERSION as version };
 export default Numviz;
@@ -122,6 +125,7 @@ export type {
   DashboardImageFit,
   DashboardLayout,
   DashboardMetricComponent,
+  DashboardPrintOptions,
   DashboardNumberRangeFilter,
   DashboardSearchFilter,
   DashboardSelectFilter,
@@ -168,4 +172,20 @@ export type {
   MetricVariant,
   MetricAggregator
 } from "./metric/types.js";
+export type {
+  ChartExportOptions,
+  ChartPNGExportOptions,
+  TableCSVExportOptions,
+  TableExportOptions,
+  TableExportScope,
+  TableHTMLExportOptions,
+  TableJSONExportOptions
+} from "./export/types.js";
+export type {
+  Report,
+  ReportConfig,
+  ReportMetadata,
+  ReportPreset,
+  ReportType
+} from "./report/types.js";
 export type { NumvizErrorCode, NumvizErrorOptions } from "./errors.js";

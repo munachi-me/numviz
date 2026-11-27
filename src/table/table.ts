@@ -10,6 +10,13 @@ import {
   resolveContainer
 } from "../utils/dom.js";
 import { requireNonEmptyString } from "../utils/validate.js";
+import { tableCsv, tableHtml, tableJson } from "../export/table.js";
+import type {
+  TableCSVExportOptions,
+  TableExportScope,
+  TableHTMLExportOptions,
+  TableJSONExportOptions
+} from "../export/types.js";
 import { formatCellValue } from "./format.js";
 import { resolveTable } from "./resolve.js";
 import { TABLE_CSS, TABLE_STYLE_ID } from "./styles.js";
@@ -273,6 +280,69 @@ class NumvizTable implements Table {
       .sort((a, b) => a - b)
       .map((index) => this.#rows[index])
       .filter((row): row is TableRow => row !== undefined);
+  }
+
+  toCSV(options: TableCSVExportOptions = {}): string {
+    const scope = this.#exportScope(options.scope);
+    if (options.delimiter !== undefined && options.delimiter.length === 0) {
+      throw new NumvizError("`delimiter` must not be empty.", {
+        code: "INVALID_CONFIG",
+        path: "delimiter"
+      });
+    }
+    return tableCsv(
+      this.#exportRows(scope),
+      this.#exportColumns(options.includeHidden),
+      (value, row, column) => formatCellValue(value, row, column, this.#config.locale),
+      options
+    );
+  }
+
+  toJSON(options: TableJSONExportOptions = {}): string {
+    const scope = this.#exportScope(options.scope);
+    if (options.format !== undefined && options.format !== "objects" && options.format !== "matrix") {
+      throw new NumvizError('`format` must be "objects" or "matrix".', {
+        code: "INVALID_CONFIG",
+        path: "format"
+      });
+    }
+    return tableJson(
+      this.#exportRows(scope),
+      this.#exportColumns(options.includeHidden),
+      (value, row, column) => formatCellValue(value, row, column, this.#config.locale),
+      options
+    );
+  }
+
+  toHTML(options: TableHTMLExportOptions = {}): string {
+    const scope = this.#exportScope(options.scope);
+    return tableHtml(
+      this.#exportRows(scope),
+      this.#exportColumns(options.includeHidden),
+      (value, row, column) => formatCellValue(value, row, column, this.#config.locale),
+      options,
+      this.#config.title
+    );
+  }
+
+  #exportScope(scope: TableExportScope | undefined): TableExportScope {
+    const value = scope ?? "all";
+    if (value !== "all" && value !== "page") {
+      throw new NumvizError('`scope` must be "all" or "page".', {
+        code: "INVALID_CONFIG",
+        path: "scope"
+      });
+    }
+    return value;
+  }
+
+  #exportRows(scope: TableExportScope): readonly TableRow[] {
+    const rows = scope === "page" ? this.#pageRows() : this.#sortedRows();
+    return rows.map((entry) => entry.row);
+  }
+
+  #exportColumns(includeHidden: boolean | undefined): readonly ResolvedTableColumn[] {
+    return includeHidden ? this.#config.columns : this.#visibleColumns();
   }
 
   getState(): TableState {

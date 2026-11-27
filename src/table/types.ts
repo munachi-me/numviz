@@ -1,4 +1,9 @@
 import type { ColumnType, DataInput, ThemeConfig } from "../types.js";
+import type {
+  TableCSVExportOptions,
+  TableHTMLExportOptions,
+  TableJSONExportOptions
+} from "../export/types.js";
 
 /** Visual variants built into the table renderer. */
 export type TableVariant = "minimal" | "striped" | "bordered" | "compact" | "dashboard";
@@ -175,6 +180,12 @@ export interface Table {
   setSearch(query: string, emit?: boolean): Table;
   setSelection(indices: readonly number[], emit?: boolean): Table;
   getSelectedRows(): TableRow[];
+  /** Export filtered, sorted rows as CSV. */
+  toCSV(options?: TableCSVExportOptions): string;
+  /** Export filtered, sorted rows as JSON. */
+  toJSON(options?: TableJSONExportOptions): string;
+  /** Export filtered, sorted rows as an HTML table. */
+  toHTML(options?: TableHTMLExportOptions): string;
   getState(): TableState;
   destroy(): void;
 }

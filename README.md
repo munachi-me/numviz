@@ -5,8 +5,8 @@ renders charts, HTML data tables and KPI metric cards from ordinary JavaScript
 data — no React, Next.js, Numiq, or CSS framework required. React is optional and
 available from a separate subpath.
 
-**Current release:** `0.8.0` — interactive dashboards with filter controls,
-cross-filtering, selection, events and serializable dashboard state.
+**Current release:** `0.9.0` — chart, table and dashboard export, print-ready
+reports, reusable report presets and safer standalone sharing.
 
 Published on npm as **`@munachi-me/numviz`**.
 
@@ -441,8 +441,66 @@ dashboard/
   functions and cannot be serialized. Standalone export is Node-only; `export()`
   rejects in browsers with an `EXPORT_FAILED` error. Built-in filters,
   cross-filtering, chart/table interactions and dashboard state keep working.
+- **Printing**: generated pages include print styles that hide filter controls
+  and table toolbars, keep widgets together where possible, and set a 12 mm page
+  margin.
+- **Security**: data is serialized with `<` escaped inside generated scripts, and
+  table HTML exports escape every value. Treat imported datasets as untrusted
+  input and review them before sharing a dashboard.
 - **Deployment**: copy the directory to GitHub Pages, Vercel, Netlify or any
   static host. No server runtime is required.
+
+## Chart, table and report exports
+
+Charts export as standalone SVG or browser PNG. Tables export filtered and
+sorted rows as CSV, JSON or an HTML table.
+
+```ts
+chart.render("#chart");
+const svg = chart.toSVG({ width: 1200, height: 720 });
+const png = await chart.toPNG({ scale: 2 });
+
+const table = createTable({
+  data: rows,
+  columns: [{ field: "region", label: "Region" }, { field: "revenue", format: "currency" }]
+});
+const csv = table.toCSV();
+const json = table.toJSON({ useLabels: true, pretty: true });
+const html = table.toHTML({ includeTitle: true });
+```
+
+- **Chart SVG**: `toSVG()` returns a portable SVG with inline theme tokens and
+  chart styles. `toPNG()` uses the browser image and canvas APIs and rejects
+  with `EXPORT_FAILED` where canvas is unavailable.
+- **Table scope**: exports include every filtered and sorted row by default.
+  Pass `scope: "page"` for the current page and `includeHidden: true` to include
+  hidden columns.
+- **Table formatting**: CSV and JSON use displayed labels and cell formatting by
+  default. Use `raw: true` for unformatted JSON values.
+
+Reports wrap dashboards with reusable layouts and print defaults:
+
+```ts
+import { createReport } from "@munachi-me/numviz";
+
+const report = createReport({
+  type: "executive",
+  metadata: { title: "Q4 review", author: "Finance" },
+  components: [
+    { id: "revenue", type: "metric", name: "Revenue", data: rows, column: "revenue", aggregation: "sum" },
+    { id: "trend", type: "chart", chartType: "line", data: rows, x: "month", y: "revenue" }
+  ]
+});
+
+report.render("#report");
+report.print();
+await report.export({ output: "./q4-report" });
+```
+
+Built-in report types are `executive`, `analytical`, `kpi`, `table`, `charts`
+and `dashboard`. `createReport()` is also available as
+`Numviz.createReport()`. Use `dashboard.print()` or `report.print()` to open the
+browser print dialog, and `print: false` to disable print helpers.
 
 ## React and Next.js
 
@@ -838,13 +896,16 @@ Errors are `NumvizError` instances with a `code` and optional `path`.
 | `CONTAINER_NOT_FOUND` | No element matches the selector |
 | `NO_DOM` | Rendering was attempted without a DOM |
 | `DESTROYED` | A destroyed chart is rendered or updated again |
+| `EXPORT_FAILED` | An export or print operation is unavailable or fails |
 
 ## Examples
 
 The `examples/` folder contains framework-free HTML pages for every chart type,
 in-place chart updates and theme colours (`chart-updates.html`), the table engine
-(`table.html`, `table-themes.html`), KPI metrics (`metrics.html`) and dashboard
-composition (`dashboard.html`), plus data format examples:
+(`table.html`, `table-themes.html`), KPI metrics (`metrics.html`), dashboard
+composition (`dashboard.html`), interactive dashboards
+(`dashboard-filters.html`) and exportable reports (`report.html`), plus data
+format examples:
 
 ```bash
 npm install
@@ -873,9 +934,10 @@ confirms that no core build file imports React.
 
 ## Release history
 
-See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: `0.8.0`
-adds interactive dashboards with filtering, cross-filtering, selection, events
-and serializable state; reporting and sharing arrive before `1.0.0`.
+See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: `0.9.0`
+adds chart, table and dashboard export, print-ready reports, reusable report
+presets and safer standalone sharing. Production hardening and the stable
+`1.0.0` API arrive next.
 
 ## License
 

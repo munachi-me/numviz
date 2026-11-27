@@ -1,4 +1,5 @@
 import type { Dashboard, DashboardConfig } from "./dashboard/types.js";
+import type { Report, ReportConfig } from "./report/types.js";
 import type { Metric, MetricConfig } from "./metric/types.js";
 import type { Table, TableConfig } from "./table/types.js";
 
@@ -6,6 +7,8 @@ import type { Table, TableConfig } from "./table/types.js";
  * Public type definitions for Numviz.
  */
 import type { NumvizError as NumvizErrorClass } from "./errors.js";
+import type { ChartExportOptions, ChartPNGExportOptions } from "./export/types.js";
+export type { ChartExportOptions, ChartPNGExportOptions } from "./export/types.js";
 
 /** Chart types available in the core package. */
 export type ChartType =
@@ -319,6 +322,10 @@ export interface Chart {
   setSelectedIndex(index: number | null): Chart;
   /** Current selected point or category index. */
   getSelectedIndex(): number | null;
+  /** Serialize the rendered chart to a standalone SVG string. */
+  toSVG(options?: ChartExportOptions): string;
+  /** Rasterize the rendered chart to PNG in a browser. */
+  toPNG(options?: ChartPNGExportOptions): Promise<Blob>;
   /** Replace the chart configuration and redraw when rendered. */
   update(config: ChartConfig): Chart;
   /** Render the chart into a selector or DOM element. */
@@ -333,6 +340,7 @@ export interface NumvizNamespace {
   readonly createTable: (config: TableConfig) => Table;
   readonly createMetric: (config: MetricConfig) => Metric;
   readonly createDashboard: (config: DashboardConfig) => Dashboard;
+  readonly createReport: (config: ReportConfig) => Report;
   readonly version: string;
   readonly NumvizError: typeof NumvizErrorClass;
 }

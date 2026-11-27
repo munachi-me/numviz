@@ -2,6 +2,54 @@
 
 All notable changes to Numviz are documented in this file.
 
+## [0.9.0] - 2026-11-26
+
+### Added
+
+- `chart.toSVG(options?)` for portable SVG chart export with inline theme tokens
+  and chart styles.
+- `chart.toPNG(options?)` for browser PNG export with configurable width,
+  height, scale and quality.
+- `table.toCSV(options?)`, `table.toJSON(options?)` and `table.toHTML(options?)`.
+  Exports use filtered and sorted rows, displayed column labels and cell
+  formatting. `scope: "page"` limits output to the current page and
+  `includeHidden` includes hidden columns.
+- `DashboardPrintOptions`, `DashboardConfig.print` and `dashboard.print()`
+  for print-specific layouts and the browser print dialog.
+- Scoped print CSS that hides filters, table toolbars and interactive controls,
+  avoids breaking widgets across pages and sets a page margin.
+- `createReport(config)` and `REPORT_PRESETS` for executive, analytical, KPI,
+  table, charts and dashboard reports. `createReport()` is also available from
+  the default `Numviz` namespace.
+- `Report`, `ReportConfig`, `ReportMetadata`, `ReportPreset`, `ReportType`,
+  `ChartExportOptions`, `ChartPNGExportOptions`, `TableExportOptions`,
+  `TableCSVExportOptions`, `TableJSONExportOptions` and
+  `TableHTMLExportOptions` public types.
+
+### Changed
+
+- Standalone export now escapes `<` in serialized configuration and data before
+  embedding it in a script, and includes print styles in generated pages.
+- Table HTML export escapes headers, captions and cell values.
+- The default namespace now includes `createReport` alongside the existing
+  component factories.
+
+### Verified
+
+- 236 tests pass, including SVG chart export, unavailable PNG handling, CSV,
+  JSON and HTML table export, report presets, print classes, print styles and
+  malicious script-data escaping.
+- `npm run verify` covers type checking, ESLint, the full test suite, production
+  builds and a packed consumer fixture.
+
+### Compatibility
+
+- No breaking changes to chart, table, metric, dashboard or React APIs.
+- Chart PNG export is browser-only and rejects with `EXPORT_FAILED` when image
+  or canvas support is unavailable. SVG export works after rendering in any DOM.
+- Reports are dashboards with report metadata, so existing dashboard APIs and
+  standalone export continue to apply.
+
 ## [0.8.0] - 2026-11-26
 
 ### Added

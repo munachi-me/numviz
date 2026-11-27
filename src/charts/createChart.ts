@@ -1,4 +1,5 @@
 import { NumvizError } from "../errors.js";
+import { chartToPNG, chartToSVG } from "../export/chart.js";
 import { renderChartContent } from "../renderers/svg/chart.js";
 import type { RenderContext } from "../renderers/context.js";
 import { resolveTheme } from "../theme/tokens.js";
@@ -12,6 +13,8 @@ import {
 import type {
   Chart,
   ChartConfig,
+  ChartExportOptions,
+  ChartPNGExportOptions,
   NormalizedDataset,
   ResolvedChartConfig,
   ThemeTokens
@@ -82,6 +85,14 @@ class NumvizChart implements Chart {
 
   getSelectedIndex(): number | null {
     return this.#selectedIndex;
+  }
+
+  toSVG(options?: ChartExportOptions): string {
+    return chartToSVG(this, options);
+  }
+
+  toPNG(options?: ChartPNGExportOptions): Promise<Blob> {
+    return chartToPNG(this, options);
   }
 
   update(config: ChartConfig): Chart {
