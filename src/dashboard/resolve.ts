@@ -16,6 +16,7 @@ import type {
   DashboardHeaderConfig,
   DashboardImageFit,
   DashboardLayout,
+  DashboardPrintOptions,
   DashboardVariant,
   DashboardWidgetShadow,
   DashboardWidgetStyle,
@@ -611,6 +612,44 @@ function resolveFooter(
   return { text, ...(className !== undefined ? { className } : {}) };
 }
 
+function resolvePrint(value: DashboardConfig["print"]): DashboardPrintOptions | null {
+  if (value === false) return null;
+  if (value === undefined) return { hideFilters: true, pageBreak: "avoid" };
+  if (!isPlainObject(value)) {
+    throw new NumvizError("`print` must be a boolean or an object.", {
+      code: "INVALID_CONFIG",
+      path: "print"
+    });
+  }
+  const bool = (field: "hideFilters" | "hideHeader" | "hideFooter"): boolean | undefined => {
+    const input = value[field];
+    if (input === undefined) return undefined;
+    if (typeof input !== "boolean") {
+      throw new NumvizError(`\`print.${field}\` must be a boolean.`, {
+        code: "INVALID_CONFIG",
+        path: `print.${field}`
+      });
+    }
+    return input;
+  };
+  const pageBreak = value.pageBreak;
+  if (pageBreak !== undefined && pageBreak !== "auto" && pageBreak !== "avoid") {
+    throw new NumvizError('`print.pageBreak` must be "auto" or "avoid".', {
+      code: "INVALID_CONFIG",
+      path: "print.pageBreak"
+    });
+  }
+  const hideFilters = bool("hideFilters");
+  const hideHeader = bool("hideHeader");
+  const hideFooter = bool("hideFooter");
+  return {
+    hideFilters: hideFilters ?? true,
+    ...(hideHeader !== undefined ? { hideHeader } : {}),
+    ...(hideFooter !== undefined ? { hideFooter } : {}),
+    pageBreak: pageBreak ?? "avoid"
+  };
+}
+
 function resolveFormat(value: DashboardConfig["format"]): ResolvedDashboardFormat {
   if (value === undefined) return {};
   if (!isPlainObject(value)) {
@@ -676,6 +715,7 @@ export function resolveDashboard(config: DashboardConfig): ResolvedDashboardConf
     footer: resolveFooter(config.footer),
     format: resolveFormat(config.format),
     widgetStyle: resolveWidgetStyle(config.widgetStyle, "widgetStyle"),
-    filters: resolveFilters(config.filters)
+    filters: resolveFilters(config.filters),
+    print: resolvePrint(config.print)
   };
 }

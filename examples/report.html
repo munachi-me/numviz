@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Report exports</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main class="wide">
+      <a class="back" href="index.html">← All examples</a>
+      <div class="toolbar" role="group" aria-label="Report actions">
+        <button id="print" type="button">Print report</button>
+        <button id="svg" type="button">Download chart SVG</button>
+        <button id="csv" type="button">Download table CSV</button>
+        <button id="json" type="button">Download table JSON</button>
+        <button id="html" type="button">Download table HTML</button>
+      </div>
+      <div id="report"></div>
+      <p class="note">
+        Reports use reusable layouts and print defaults. The download buttons
+        exercise chart SVG and table CSV, JSON and HTML exports. Browser print
+        hides filters and table controls automatically.
+      </p>
+    </main>
+    <script type="module">
+      import { createReport } from "../dist/index.js";
+
+      const rows = [
+        { month: "Jan", region: "North", revenue: 108000, orders: 412 },
+        { month: "Feb", region: "North", revenue: 119000, orders: 438 },
+        { month: "Mar", region: "South", revenue: 126000, orders: 451 },
+        { month: "Apr", region: "South", revenue: 129000, orders: 467 },
+        { month: "May", region: "East", revenue: 138000, orders: 482 },
+        { month: "Jun", region: "West", revenue: 145000, orders: 506 }
+      ];
+
+      const report = createReport({
+        type: "executive",
+        metadata: {
+          title: "Revenue report",
+          author: "Finance",
+          description: "First half performance"
+        },
+        theme: {
+          accent: "#4F46E5",
+          chartPalette: ["#4F46E5", "#06B6D4", "#10B981", "#F59E0B"]
+        },
+        format: { locale: "en-US", currency: "USD" },
+        components: [
+          {
+            id: "revenue",
+            type: "metric",
+            name: "Total revenue",
+            data: rows,
+            column: "revenue",
+            aggregation: "sum",
+            format: "currency"
+          },
+          {
+            id: "orders",
+            type: "metric",
+            name: "Orders",
+            data: rows,
+            column: "orders",
+            aggregation: "sum",
+            format: "number"
+          },
+          {
+            id: "trend",
+            type: "chart",
+            chartType: "line",
+            title: "Revenue trend",
+            data: rows,
+            x: "month",
+            y: "revenue",
+            width: 900,
+            height: 360,
+            layout: { columnSpan: 2 }
+          },
+          {
+            id: "records",
+            type: "table",
+            title: "Monthly detail",
+            data: rows,
+            searchable: true,
+            sortable: true,
+            columns: [
+              { field: "month", label: "Month" },
+              { field: "region", label: "Region" },
+              { field: "revenue", label: "Revenue", format: "currency" },
+              { field: "orders", label: "Orders" }
+            ],
+            layout: { columnSpan: 2 }
+          }
+        ]
+      }).render("#report");
+
+      const chart = report.getWidget("trend")?.instance;
+      const table = report.getWidget("records")?.instance;
+
+      function download(filename, content, type) {
+        const blob = content instanceof Blob ? content : new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      }
+
+      document.querySelector("#print").addEventListener("click", () => report.print());
+      document.querySelector("#svg").addEventListener("click", () => {
+        download("revenue-trend.svg", chart.toSVG(), "image/svg+xml");
+      });
+      document.querySelector("#csv").addEventListener("click", () => {
+        download("monthly-detail.csv", table.toCSV(), "text/csv;charset=utf-8");
+      });
+      document.querySelector("#json").addEventListener("click", () => {
+        download(
+          "monthly-detail.json",
+          table.toJSON({ pretty: true, useLabels: true }),
+          "application/json"
+        );
+      });
+      document.querySelector("#html").addEventListener("click", () => {
+        download("monthly-detail.html", table.toHTML({ includeTitle: true }), "text/html");
+      });
+    </script>
+  </body>
+</html>

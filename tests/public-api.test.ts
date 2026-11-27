@@ -3,6 +3,7 @@ import Numviz, {
   createChart,
   createDashboard,
   createMetric,
+  createReport,
   createTable,
   isNumvizError,
   NumvizError,
@@ -32,10 +33,12 @@ describe("root public API", () => {
     expect(typeof createTable).toBe("function");
     expect(typeof createMetric).toBe("function");
     expect(typeof createDashboard).toBe("function");
+    expect(typeof createReport).toBe("function");
     expect(Numviz.createChart).toBe(createChart);
     expect(Numviz.createTable).toBe(createTable);
     expect(Numviz.createMetric).toBe(createMetric);
     expect(Numviz.createDashboard).toBe(createDashboard);
+    expect(Numviz.createReport).toBe(createReport);
     expect(Numviz.version).toBe(version);
     expect(Numviz.NumvizError).toBe(NumvizError);
     expect(Object.isFrozen(Numviz)).toBe(true);
@@ -44,6 +47,7 @@ describe("root public API", () => {
       "createChart",
       "createDashboard",
       "createMetric",
+      "createReport",
       "createTable",
       "version"
     ]);

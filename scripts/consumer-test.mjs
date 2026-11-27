@@ -69,23 +69,25 @@ try {
     `import { createRequire } from "node:module";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import Numviz, { createChart, createDashboard, createMetric, createTable, version, NumvizError } from "${packageName}";
+import Numviz, { createChart, createDashboard, createMetric, createReport, createTable, version, NumvizError } from "${packageName}";
 import * as named from "${packageName}";
 
 if (Numviz.createChart !== createChart) throw new Error("default and named createChart differ");
 if (Numviz.createTable !== createTable) throw new Error("default and named createTable differ");
 if (Numviz.createMetric !== createMetric) throw new Error("default and named createMetric differ");
 if (Numviz.createDashboard !== createDashboard) throw new Error("default and named createDashboard differ");
+if (Numviz.createReport !== createReport) throw new Error("default and named createReport differ");
 if (named.createTable !== Numviz.createTable) throw new Error("namespace createTable differs");
 if (named.createMetric !== Numviz.createMetric) throw new Error("namespace createMetric differs");
 if (named.createDashboard !== Numviz.createDashboard) throw new Error("namespace createDashboard differs");
+if (named.createReport !== Numviz.createReport) throw new Error("namespace createReport differs");
 if (named.createChart !== Numviz.createChart) throw new Error("namespace import differs");
 if (named.default !== Numviz) throw new Error("namespace default export differs");
 if (Numviz.version !== version) throw new Error("default and named version differ");
 if (typeof version !== "string" || version.length === 0) throw new Error("version is missing");
 if (Numviz.NumvizError !== NumvizError) throw new Error("default namespace NumvizError differs");
 if (!Object.isFrozen(Numviz)) throw new Error("default namespace is not frozen");
-if (Object.keys(Numviz).sort().join(",") !== "NumvizError,createChart,createDashboard,createMetric,createTable,version") {
+if (Object.keys(Numviz).sort().join(",") !== "NumvizError,createChart,createDashboard,createMetric,createReport,createTable,version") {
   throw new Error("default namespace is missing public members");
 }
 
@@ -135,6 +137,11 @@ try {
   tableDomError = error;
 }
 if (!tableDomError || tableDomError.code !== "NO_DOM") throw new Error("table rendering should fail with NO_DOM outside a DOM");
+const csv = table.toCSV();
+if (!csv.startsWith("Region,") || !csv.includes("North,$10.00")) throw new Error("table CSV export failed");
+const tableJson = JSON.parse(table.toJSON({ useLabels: true }));
+if (tableJson[0]?.Region !== "North") throw new Error("table JSON export failed");
+if (!table.toHTML().includes("<table")) throw new Error("table HTML export failed");
 
 const require = createRequire(import.meta.url);
 const packageJsonPath = require.resolve("${packageName}/package.json");
@@ -236,9 +243,28 @@ if (!existsSync(path.join(exportDirectory, "data", "data.json"))) throw new Erro
 const standaloneRuntime = readFileSync(path.join(exportDirectory, "assets", "numviz", "runtime.js"), "utf8");
 if (!standaloneRuntime.includes("NumvizStandalone")) throw new Error("standalone runtime is not self-contained");
 if (/from\\s+["']react|require\\(\\s*["']react/.test(standaloneRuntime)) throw new Error("standalone runtime imports React");
+const report = createReport({
+  type: "executive",
+  metadata: { title: "Consumer report", author: "Numviz" },
+  components: [
+    {
+      id: "total",
+      type: "metric",
+      name: "Revenue",
+      data: [{ revenue: 100 }],
+      column: "revenue",
+      aggregation: "sum"
+    }
+  ]
+});
+if (report.reportType !== "executive") throw new Error("report type was not applied");
+if (report.config.title !== "Consumer report") throw new Error("report metadata title was not applied");
+if (report.config.layout.columns.lg !== 4) throw new Error("report layout preset was not applied");
+if (typeof report.print !== "function") throw new Error("report print method is missing");
+report.destroy();
 dashboard.destroy();
 
-console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "chart-update", "theme-colours", "no-dom", "table", "metric", "dashboard", "dashboard-filters", "standalone-export", "react-entry"] }));
+console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "chart-update", "theme-colours", "no-dom", "table", "table-export", "metric", "dashboard", "dashboard-filters", "standalone-export", "report", "react-entry"] }));
 `
   );
   const runtimeOutput = run(process.execPath, ["runtime-check.mjs"], { cwd: fixture }).trim();
@@ -367,16 +393,21 @@ console.log(JSON.stringify({ entry: "react", ssr: true, exports: ["Chart", "Dash
   createChart,
   createDashboard,
   createMetric,
+  createReport,
   createTable,
   NumvizError,
   type ChartConfig,
+  type ChartExportOptions,
   type Dashboard,
   type DashboardConfig,
   type DashboardFilter,
   type DashboardFilterChangeEvent,
   type DashboardState,
   type MetricConfig,
-  type TableConfig
+  type Report,
+  type ReportConfig,
+  type TableConfig,
+  type TableCSVExportOptions
 } from "${packageName}";
 
 const config: ChartConfig = {
@@ -404,6 +435,14 @@ const table = createTable(tableConfig);
 const namespaceTable = Numviz.createTable(tableConfig);
 namespaceTable.destroy();
 table.getState();
+const tableExportOptions: TableCSVExportOptions = { scope: "page", includeHidden: true };
+const tableCsv: string = table.toCSV(tableExportOptions);
+const tableJson: string = table.toJSON({ useLabels: true, pretty: true });
+const tableHtml: string = table.toHTML({ includeTitle: true });
+tableCsv.length + tableJson.length + tableHtml.length;
+const chartExportOptions: ChartExportOptions = { width: 900, scale: 2 };
+const chartSvgExport: (options?: ChartExportOptions) => string = namedChart.toSVG;
+chartSvgExport(chartExportOptions);
 
 const metricConfig: MetricConfig = {
   name: "Revenue",
@@ -445,6 +484,18 @@ const dashboardConfig: DashboardConfig = {
 };
 const dashboard: Dashboard = createDashboard(dashboardConfig);
 const namespaceDashboard: Dashboard = Numviz.createDashboard(dashboardConfig);
+const reportConfig: ReportConfig = {
+  ...dashboardConfig,
+  type: "executive",
+  metadata: { title: "Typed report", author: "Numviz" }
+};
+const report: Report = createReport(reportConfig);
+const namespaceReport: Report = Numviz.createReport(reportConfig);
+report.reportType;
+report.metadata?.author;
+report.print;
+namespaceReport.destroy();
+report.destroy();
 dashboard.getWidget("revenue")?.instance;
 dashboard.config.layout.columns.base;
 dashboard.setFilter("region", "North");

@@ -326,9 +326,37 @@ ${selector}.numviz-dashboard--flush .numviz-dashboard__widget {
 .${selector}.numviz-dashboard--flush .numviz-dashboard__widget > .numviz-dashboard__body > .numviz-root {
   background: transparent;
 }
+${selector}.numviz-dashboard--print-hide-filters .numviz-dashboard__filters,
+${selector}.numviz-dashboard--print-hide-header .numviz-dashboard__header,
+${selector}.numviz-dashboard--print-hide-footer .numviz-dashboard__footer {
+  display: none;
+}
 @media (prefers-reduced-motion: reduce) {
   ${selector} .numviz-dashboard__widget {
     transition: none;
+  }
+}
+@media print {
+  ${selector} {
+    gap: 12px !important;
+  }
+  .${scope} .numviz-dashboard__widget {
+    box-shadow: none;
+    break-inside: auto;
+  }
+  ${selector}.numviz-dashboard--print-avoid-break .numviz-dashboard__widget {
+    break-inside: avoid;
+  }
+  .${scope} .numviz-table__toolbar,
+  .${scope} .numviz-table__footer,
+  .${scope} .numviz-table__sort,
+  .${scope} .numviz-dashboard__filter-clear,
+  .${scope} .numviz-dashboard__filter-chip-clear {
+    display: none !important;
+  }
+  .${scope} .numviz-chart__mark {
+    animation: none !important;
+    transition: none !important;
   }
 }
 `;

@@ -153,7 +153,7 @@ function serialize(value: unknown, path: string): string {
   try {
     const result = JSON.stringify(value);
     if (result === undefined) throw new Error("Value is not JSON serializable.");
-    return result;
+    return result.replaceAll("<", "\\u003c");
   } catch (error) {
     throw new NumvizError(`Unable to serialize ${path} for standalone export.`, {
       code: "EXPORT_FAILED",
@@ -198,6 +198,27 @@ body {
 }
 @media (max-width: 640px) {
   #numviz-app { padding: 20px 12px 32px; }
+}
+@media print {
+  @page { margin: 12mm; }
+  html, body { background: #fff !important; }
+  #numviz-app { max-width: none; padding: 0; }
+  .numviz-dashboard__filters,
+  .numviz-dashboard__filter-clear,
+  .numviz-dashboard__filter-chip-clear,
+  .numviz-table__toolbar,
+  .numviz-table__footer,
+  .numviz-table__sort {
+    display: none !important;
+  }
+  .numviz-dashboard__widget {
+    break-inside: avoid;
+    box-shadow: none !important;
+  }
+  .numviz-chart__mark {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 .numviz-standalone__error {
   margin: 48px auto;

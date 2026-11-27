@@ -39,6 +39,7 @@ import type {
   DashboardCustomComponent,
   DashboardExportOptions,
   DashboardExportResult,
+  DashboardPrintOptions,
   DashboardWidget,
   DashboardWidgetStyle,
   ResolvedDashboardConfig,
@@ -407,6 +408,30 @@ class NumvizDashboard implements Dashboard {
     if (!listeners) return;
     listeners.delete(listener as (event: DashboardEventMap[DashboardEventType]) => void);
     if (listeners.size === 0) this.#listeners.delete(type);
+  }
+
+  print(options?: DashboardPrintOptions): Dashboard {
+    if (this.#destroyed) {
+      throw new NumvizError("This dashboard has been destroyed. Create a new dashboard to print it.", {
+        code: "DESTROYED"
+      });
+    }
+    const root = this.#root;
+    if (!root) {
+      throw new NumvizError("Render the dashboard before printing it.", {
+        code: "EXPORT_FAILED"
+      });
+    }
+    const view = this.#view ?? getWindow(root.ownerDocument);
+    const printer = view?.print;
+    if (typeof printer !== "function") {
+      throw new NumvizError("Browser printing is not available in this environment.", {
+        code: "EXPORT_FAILED"
+      });
+    }
+    this.#applyPrintClasses(options);
+    printer.call(view);
+    return this;
   }
 
   async export(options: DashboardExportOptions): Promise<DashboardExportResult> {
@@ -1391,6 +1416,7 @@ class NumvizDashboard implements Dashboard {
     root.style.gap = "20px";
     root.style.background = config.background ?? "";
     applyThemeTokens(root, resolveTheme(config.theme, this.#view));
+    this.#applyPrintClasses();
     this.#ensureStyles(doc);
     this.#style = doc.getElementById(dashboardStyleId(this.#scope)) as HTMLStyleElement | null;
     if (this.#grid) {
@@ -1400,6 +1426,23 @@ class NumvizDashboard implements Dashboard {
       this.#grid.style.gridTemplateRows = config.layout.rows ?? "";
       this.#grid.style.gridAutoRows = config.layout.autoRows ?? "";
     }
+  }
+
+  #applyPrintClasses(options?: DashboardPrintOptions): void {
+    const root = this.#root;
+    if (!root) return;
+    const configured = this.#config.print;
+    const print = options
+      ? { ...(configured ?? { hideFilters: true, pageBreak: "avoid" as const }), ...options }
+      : configured;
+    const hideFilters = print ? print.hideFilters ?? true : false;
+    root.classList.toggle("numviz-dashboard--print-hide-filters", hideFilters);
+    root.classList.toggle("numviz-dashboard--print-hide-header", print?.hideHeader === true);
+    root.classList.toggle("numviz-dashboard--print-hide-footer", print?.hideFooter === true);
+    root.classList.toggle(
+      "numviz-dashboard--print-avoid-break",
+      print ? print.pageBreak !== "auto" : false
+    );
   }
 
   #syncChrome(): void {

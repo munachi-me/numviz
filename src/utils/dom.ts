@@ -49,7 +49,7 @@ export function resolveContainer(target: string | Element, scope?: Document): El
   return found;
 }
 
-const BASE_CSS = `
+export const BASE_CSS = `
 .numviz-root {
   position: relative;
   display: block;

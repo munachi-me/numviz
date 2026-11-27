@@ -1,17 +1,17 @@
-# Numviz API reference — 0.8.0
+# Numviz API reference — 0.9.0
 
 ## Entry points
 
 ```ts
 import Numviz from "@munachi-me/numviz";              // default namespace
-import { createChart, createTable, createMetric, createDashboard } from "@munachi-me/numviz";
+import { createChart, createTable, createMetric, createDashboard, createReport } from "@munachi-me/numviz";
 import { Dashboard, DataTable, Metric } from "@munachi-me/numviz/react"; // optional React entry
 ```
 
 The default namespace is frozen and contains `createChart`, `createTable`,
-`createMetric`, `createDashboard`, `version` and `NumvizError`. Named and default
-imports reference the same function implementations. The React subpath is a
-separate optional entry and is the only module that imports React.
+`createMetric`, `createDashboard`, `createReport`, `version` and `NumvizError`.
+Named and default imports reference the same function implementations. The React
+subpath is a separate optional entry and is the only module that imports React.
 
 Type exports include `Chart`, `ChartConfig`, `ChartType`, `ChartClickEvent`,
 `DataInput`, `DataRecord`, `DataMatrixRow`, `DatasetLike`, `ColumnInput`,
@@ -25,7 +25,10 @@ Type exports include `Chart`, `ChartConfig`, `ChartType`, `ChartClickEvent`,
 `TableAlign`, `TableVariant`, `TableFormatPreset`, `TableFormatter`,
 `TableCellRenderer`, `TableCellContext`, `TableSortState`,
 `TableSortDirection`, `TableState`, `TableData`, `ResolvedTableConfig`,
-`ResolvedTableColumn`, `Metric`, `MetricConfig`, `MetricResult`,
+`ResolvedTableColumn`, `ChartExportOptions`, `ChartPNGExportOptions`,
+`TableExportOptions`, `TableExportScope`, `TableCSVExportOptions`,
+`TableJSONExportOptions`, `TableHTMLExportOptions`, `Report`, `ReportConfig`,
+`ReportMetadata`, `ReportPreset`, `ReportType`, `Metric`, `MetricConfig`, `MetricResult`,
 `MetricAggregation`, `MetricAggregationAlias`, `MetricAggregationName`, `MetricAggregator`,
 `MetricComparisonConfig`, `MetricComparisonResult`, `MetricContext`,
 `MetricDirection`, `MetricFilter`, `MetricRowFilter`, `MetricRowContext`,
@@ -107,11 +110,19 @@ Series fields must be unique and numeric. Unknown or non-numeric fields throw
 | `render(target)` | Render into a selector or element; returns the chart |
 | `update(config)` | Validate and replace configuration, then redraw in place |
 | `setSeriesVisible(index, visible)` | Toggle a series like a legend click |
+| `toSVG(options?)` | Serialize the rendered chart to a standalone SVG string |
+| `toPNG(options?)` | Rasterize the rendered chart to a PNG `Blob` in a browser |
 | `destroy()` | Remove output, listeners and mark the chart destroyed |
 
 Calling `render()` again removes previous output. `update()` keeps the chart
 instance, normalizes the new data and redraws into the same container. Rendering
 or updating a destroyed chart throws `DESTROYED`.
+
+`toSVG()` requires a rendered chart and embeds the chart styles and theme tokens
+so the result can be opened or stored independently. `ChartExportOptions`
+accepts `width`, `height`, `scale` and `background`. `toPNG()` additionally
+accepts `quality` and uses the browser image and canvas APIs; it rejects with
+`EXPORT_FAILED` where canvas support is unavailable.
 
 ## `createTable(config): Table`
 
@@ -207,8 +218,18 @@ Return a DOM node from `render` to add markup.
 | `setSearch(query, emit?)` | Sets the query and resets to page 1 |
 | `setSelection(indices, emit?)` | Sets selected row indices |
 | `getSelectedRows()` | Returns selected row objects |
+| `toCSV(options?)` | Exports filtered and sorted rows as CSV |
+| `toJSON(options?)` | Exports filtered and sorted rows as JSON |
+| `toHTML(options?)` | Exports filtered and sorted rows as an escaped HTML table |
 | `getState()` | Sort, page, page count, query, selection and counts |
 | `destroy()` | Removes output and listeners |
+
+Table exports use displayed column labels and formatted values by default.
+`TableExportOptions` provides `scope` (`"all"` or `"page"`) and `includeHidden`.
+CSV options add `delimiter`, `includeHeaders`, `bom` and `lineEnding`. JSON
+options add `format` (`"objects"` or `"matrix"`), `useLabels`, `raw`,
+`includeHeaders` and `pretty`. HTML options add `includeHeaders` and
+`includeTitle`. HTML output escapes captions, headers and cell values.
 
 Only the current page is rendered when `pagination` is enabled; with pagination
 disabled every filtered and sorted row is rendered and `getState().pageCount`
@@ -646,6 +667,62 @@ sorting, searching, selection and pagination interactions continue to work.
 Serve external-data dashboards over HTTP; browsers block local JSON requests
 from `file://`.
 
+Generated pages include print styles that hide filter controls and table
+toolbars, avoid breaking widgets across pages and set a 12 mm page margin.
+Serialized configuration and data escape `<` before being placed inside a
+script, and table HTML exports escape all values. Treat datasets from external
+sources as untrusted input.
+
+### Printing
+
+`DashboardConfig.print` accepts a boolean or `DashboardPrintOptions`:
+
+| Option | Description |
+| --- | --- |
+| `hideFilters` | Hide the filter bar when printing; defaults to true |
+| `hideHeader` | Hide the dashboard header when printing |
+| `hideFooter` | Hide the dashboard footer when printing |
+| `pageBreak` | `"avoid"` (default) or `"auto"` for widget page breaks |
+
+`dashboard.print(options?)` applies print classes and calls the browser print
+dialog. It throws `EXPORT_FAILED` when the dashboard has not been rendered or
+the environment has no print support. Pass `print: false` to disable print
+helpers for a dashboard.
+
+## `createReport(config): Report`
+
+`createReport` creates a dashboard with a preset layout, print defaults and
+report metadata. The returned `Report` supports every dashboard method and adds
+`reportType`, `metadata` and a typed `print()` method.
+
+```ts
+import { createReport } from "@munachi-me/numviz";
+
+const report = createReport({
+  type: "executive",
+  metadata: { title: "Q4 review", author: "Finance" },
+  components: [
+    {
+      id: "revenue",
+      type: "metric",
+      name: "Revenue",
+      data: rows,
+      column: "revenue",
+      aggregation: "sum"
+    }
+  ]
+});
+
+report.render("#report");
+report.print();
+```
+
+Built-in types are `executive`, `analytical`, `kpi`, `table`, `charts` and
+`dashboard`. `REPORT_PRESETS` exposes the layout and print defaults for each
+type. Explicit `layout`, `print` and `widgetStyle` values override the preset.
+`metadata.title` and `metadata.description` fill missing dashboard titles and
+descriptions.
+
 ## React entry point
 
 `@munachi-me/numviz/react` exports `Chart`, `Dashboard`, `DashboardWidget`,
@@ -798,8 +875,8 @@ class NumvizError extends Error {
 ```
 
 Codes: `INVALID_CONFIG`, `INVALID_TYPE`, `INVALID_DATA`, `INVALID_CONTAINER`,
-`CONTAINER_NOT_FOUND`, `NO_DOM`, `DESTROYED`. Use `isNumvizError(error)` for
-narrowing.
+`CONTAINER_NOT_FOUND`, `NO_DOM`, `DESTROYED`, `EXPORT_FAILED`. Use
+`isNumvizError(error)` for narrowing.
 
 ## Configuration validation
 
