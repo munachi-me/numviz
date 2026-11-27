@@ -49,7 +49,9 @@ describe("cross-platform build scripts", () => {
       expect(script, `scripts.${name}`).not.toMatch(/\brm\s+-rf\b/);
       expect(script, `scripts.${name}`).not.toMatch(/(^|&&|;)\s*rm\s/);
     }
-    expect(pkg.scripts.build).toBe("node scripts/clean.mjs && tsc -p tsconfig.build.json");
+    expect(pkg.scripts.build).toBe(
+      "node scripts/clean.mjs && tsc -p tsconfig.build.json && node scripts/build-standalone-runtime.mjs"
+    );
   });
 
   it("cleans nested build output through Node filesystem APIs", async () => {

@@ -220,9 +220,17 @@ try {
 if (!dashboardDomError || dashboardDomError.code !== "NO_DOM") {
   throw new Error("dashboard rendering should fail with NO_DOM outside a DOM");
 }
+const exportDirectory = path.join(process.cwd(), "standalone-export");
+const exported = await dashboard.export({ output: exportDirectory, data: "external", title: "Consumer dashboard" });
+if (exported.singleFile !== false || exported.data !== "external") throw new Error("standalone export result is wrong");
+if (!existsSync(path.join(exportDirectory, "index.html"))) throw new Error("standalone export index is missing");
+if (!existsSync(path.join(exportDirectory, "data", "data.json"))) throw new Error("standalone export data is missing");
+const standaloneRuntime = readFileSync(path.join(exportDirectory, "assets", "numviz", "runtime.js"), "utf8");
+if (!standaloneRuntime.includes("NumvizStandalone")) throw new Error("standalone runtime is not self-contained");
+if (/from\\s+["']react|require\\(\\s*["']react/.test(standaloneRuntime)) throw new Error("standalone runtime imports React");
 dashboard.destroy();
 
-console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "chart-update", "theme-colours", "no-dom", "table", "metric", "dashboard", "react-entry"] }));
+console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "chart-update", "theme-colours", "no-dom", "table", "metric", "dashboard", "standalone-export", "react-entry"] }));
 `
   );
   const runtimeOutput = run(process.execPath, ["runtime-check.mjs"], { cwd: fixture }).trim();

@@ -505,12 +505,21 @@ function resolveHeader(
     optionalString(header.description, "header.description") ??
     optionalString(config.description, "description");
   const text = optionalString(header.text, "header.text");
+  const logo = optionalString(header.logo, "header.logo");
   const className = optionalString(header.className, "header.className");
-  if (title === undefined && description === undefined && text === undefined) return null;
+  if (
+    title === undefined &&
+    description === undefined &&
+    text === undefined &&
+    logo === undefined
+  ) {
+    return null;
+  }
   return {
     ...(title !== undefined ? { title } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(text !== undefined ? { text } : {}),
+    ...(logo !== undefined ? { logo } : {}),
     ...(className !== undefined ? { className } : {})
   };
 }

@@ -6,7 +6,8 @@ export type NumvizErrorCode =
   | "INVALID_CONTAINER"
   | "CONTAINER_NOT_FOUND"
   | "NO_DOM"
-  | "DESTROYED";
+  | "DESTROYED"
+  | "EXPORT_FAILED";
 
 export interface NumvizErrorOptions {
   code: NumvizErrorCode;

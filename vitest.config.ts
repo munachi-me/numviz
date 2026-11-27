@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     include: ["tests/**/*.test.ts"],
+    globalSetup: ["./scripts/vitest-global-setup.mjs"],
     coverage: { enabled: false }
   }
 });

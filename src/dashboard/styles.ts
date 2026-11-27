@@ -88,6 +88,12 @@ ${selector} .numviz-dashboard__header {
   gap: 4px;
   min-width: 0;
 }
+${selector} .numviz-dashboard__logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 8px;
+}
 ${selector} .numviz-dashboard__title {
   margin: 0;
   font-size: 24px;

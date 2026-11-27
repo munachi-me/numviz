@@ -2,6 +2,53 @@
 
 All notable changes to Numviz are documented in this file.
 
+## [0.7.0] - 2026-11-27
+
+### Added
+
+- `dashboard.export(options)` for generating a standalone HTML dashboard from
+  Node.js. Directory output includes `index.html`, `assets/styles.css`,
+  `assets/dashboard.js`, `assets/numviz/runtime.js` and `README.md`.
+- Single-file export when `output` ends in `.html`. The page inlines the
+  runtime, styles, configuration and component data.
+- Embedded and external data modes. `data: "external"` writes
+  `data/data.json` and the generated page loads it at runtime.
+- A self-contained browser runtime built from the Numviz core. Generated
+  dashboards run without Numviz, React, Next.js or a backend installed.
+- Export customisation for `title`, `description`, `logo`, `theme`,
+  `fontFamily`, `background`, `layout`, `header` and `footer`.
+- Optional `logo` support in dashboard headers and `DashboardHeaderConfig`.
+- `DashboardExportOptions`, `DashboardExportResult`, `DashboardExportFile`,
+  `DashboardExportFormat` and `DashboardDataMode` public types.
+- `EXPORT_FAILED` error code for filesystem and serialization failures.
+
+### Changed
+
+- `npm run build` now emits `dist/standalone/numviz-runtime.js` after TypeScript
+  compilation. The runtime bundle is included in the published package.
+- Standalone dashboards align widgets to the start of their grid row by default
+  unless the dashboard layout specifies another alignment.
+- The packed consumer fixture now exercises standalone export and verifies the
+  generated runtime contains no React imports.
+
+### Verified
+
+- 211 tests pass, including directory export, external data, single-file
+  output, generated-page execution in jsdom, unsupported custom components and
+  invalid export options.
+- Embedded and external standalone dashboards were rendered in a browser from
+  a static HTTP server, including metric cards, charts, tables and search.
+- `npm run verify` covers type checking, linting, tests, production builds and a
+  packed consumer fixture that exports a dashboard from the installed package.
+
+### Compatibility
+
+- No breaking changes to chart, table, metric, dashboard or React APIs.
+  `DashboardHeaderConfig.logo` and the export API are additive.
+- Standalone export is Node-only. Calling it without filesystem access rejects
+  with an `EXPORT_FAILED` error. Custom dashboard components cannot be
+  serialized because their render functions are not portable.
+
 ## [0.6.0] - 2026-11-26
 
 ### Added

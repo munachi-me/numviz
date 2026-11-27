@@ -5,10 +5,9 @@ renders charts, HTML data tables and KPI metric cards from ordinary JavaScript
 data — no React, Next.js, Numiq, or CSS framework required. React is optional and
 available from a separate subpath.
 
-**Current release:** `0.6.0` — framework integrations and developer experience,
-adding the React `Chart` and `DashboardWidget` components, declarative dashboard
-children, in-place chart updates, theme colour aliases and stable prop
-reconciliation on top of the 0.5.0 dashboard engine.
+**Current release:** `0.7.0` — standalone dashboard export, adding a Node.js
+`dashboard.export()` API that writes a complete static dashboard with its own
+runtime. Generated dashboards work without Numviz, React or a backend.
 
 Published on npm as **`@munachi-me/numviz`**.
 
@@ -272,15 +271,87 @@ dashboard.render("#dashboard");
   configured separately from visual style.
 - **Global formatting**: dashboard `format.locale` and `format.currency` fill in
   metric and table defaults when the widget does not specify them.
-- **Lifecycle**: `render`, `update`, `refresh`, `destroy` and `getWidget`.
-  Updates reconcile widgets by id, preserve table state and recompute metrics;
-  removed widgets and their engines are destroyed. `refresh()` re-reads current
-  component data.
+- **Lifecycle**: `render`, `update`, `refresh`, `destroy`, `getWidget` and
+  `export`. Updates reconcile widgets by id, preserve table state and recompute
+  metrics; removed widgets and their engines are destroyed. `refresh()` re-reads
+  current component data.
 - **Isolation**: each dashboard gets a scoped layout stylesheet keyed to its
   instance, so columns and breakpoints do not leak between dashboards.
 
 See [docs/api.md](./docs/api.md#createdashboardconfig-dashboard) for the complete
 dashboard, layout and component API, and open `examples/dashboard.html`.
+
+## Standalone dashboard export
+
+`dashboard.export()` writes a finished static dashboard from Node.js. The
+generated project carries its own Numviz runtime, so it works without Numviz,
+React or a backend installed. Creating a dashboard does not write files; run a
+script that calls `export()`:
+
+```ts
+import { createDashboard } from "@munachi-me/numviz";
+
+const dashboard = createDashboard({
+  title: "Sales Analytics",
+  description: "Business performance overview",
+  components: [
+    {
+      id: "revenue",
+      type: "metric",
+      name: "Total Revenue",
+      data: revenueRows,
+      column: "revenue",
+      aggregation: "sum",
+      format: "currency"
+    },
+    {
+      id: "sales",
+      type: "chart",
+      chartType: "bar",
+      data: monthlyRows,
+      x: "month",
+      y: "revenue"
+    },
+    { id: "records", type: "table", data: employeeRows, searchable: true }
+  ]
+});
+
+await dashboard.export({
+  format: "html",
+  output: "./dashboard",
+  data: "embedded"
+});
+```
+
+Run the script with `npx tsx export-dashboard.ts`, or compile it and run the
+result with Node.js. See `examples/standalone-export.mjs` for a runnable
+example. A directory export contains:
+
+```text
+dashboard/
+├── index.html
+├── assets/
+│   ├── styles.css
+│   ├── dashboard.js
+│   └── numviz/runtime.js
+├── data/data.json        # external data mode
+└── README.md
+```
+
+- **Data modes**: `data: "embedded"` (default) writes component data into the
+  page. `data: "external"` writes `data/data.json` and loads it at runtime;
+  serve the directory over HTTP because browsers block local JSON requests from
+  `file://`.
+- **Single file**: pass an output ending in `.html` to generate one portable
+  file. Single-file output requires embedded data.
+- **Customisation**: `title`, `description`, `logo`, `theme`, `fontFamily`,
+  `background`, `layout`, `header` and `footer` override the generated page.
+- **Limits**: custom dashboard components contain render functions and cannot
+  be serialized. Standalone export is Node-only; `export()` rejects in browsers
+  with an `EXPORT_FAILED` error. Built-in chart, table and metric interactions
+  keep working.
+- **Deployment**: copy the directory to GitHub Pages, Vercel, Netlify or any
+  static host. No server runtime is required.
 
 ## React and Next.js
 
@@ -695,7 +766,7 @@ npx serve .
 npm run typecheck   # strict TypeScript
 npm run lint        # ESLint
 npm test            # Vitest in jsdom
-npm run build       # cross-platform clean (scripts/clean.mjs) + tsc
+npm run build       # clean, tsc and self-contained standalone runtime
 npm run verify      # typecheck, lint, tests, build, consumer import test
 ```
 
@@ -709,9 +780,9 @@ confirms that no core build file imports React.
 
 ## Release history
 
-See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: `0.5.x`
-adds dashboard composition; framework adapters, the complete theme engine,
-standalone export and reporting arrive before `1.0.0`.
+See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: `0.7.0`
+adds standalone dashboard export; advanced interactions, filtering and
+reporting arrive before `1.0.0`.
 
 ## License
 
