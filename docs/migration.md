@@ -3,6 +3,13 @@
 Numviz follows semantic versioning from `1.0.0`. This guide records the
 changes that matter when upgrading between releases.
 
+## 1.0.1 to 1.0.2
+
+`1.0.2` is a publishing maintenance release with no public API changes. npm
+publication now uses Trusted Publishing through GitHub Actions OIDC, and the
+workflow no longer requires an `NPM_TOKEN`. Package consumers do not need to
+change anything.
+
 ## 1.0.0 to 1.0.1
 
 `1.0.1` is a maintenance release with no public API changes. CSV exports now

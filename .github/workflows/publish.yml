@@ -21,8 +21,8 @@ on:
 
 permissions:
   contents: read
-  id-token: write
-  packages: write
+  id-token: write # npm Trusted Publishing through GitHub Actions OIDC
+  packages: write # GitHub Packages through the workflow GITHUB_TOKEN
 
 concurrency:
   group: publish-packages
@@ -37,12 +37,30 @@ jobs:
       GITHUB_REGISTRY: "https://npm.pkg.github.com"
       GITHUB_NPMRC: ${{ github.workspace }}/.github-packages.npmrc
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      # No registry-url on purpose. setup-node would write an .npmrc containing
+      # _authToken=${NODE_AUTH_TOKEN}, which can shadow npm Trusted Publishing.
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
-          cache: npm
-          registry-url: https://registry.npmjs.org
+          node-version: "24"
+          package-manager-cache: false
+      - name: Install npm with Trusted Publishing support
+        run: npm install --global npm@11.5.1
+      - name: Verify Node.js and npm versions
+        run: |
+          set -euo pipefail
+          node --version
+          npm --version
+          node_major="$(node -p "process.versions.node.split('.')[0]")"
+          if [ "$node_major" -lt 24 ]; then
+            echo "::error::Node.js 24 or newer is required for this publish workflow."
+            exit 1
+          fi
+          npm_version="$(npm --version)"
+          if [ "$(printf '%s\n' 11.5.1 "$npm_version" | sort -V | head -n1)" != "11.5.1" ]; then
+            echo "::error::npm $npm_version is older than the required 11.5.1."
+            exit 1
+          fi
       - run: npm ci
       - run: npm run verify
       - name: Resolve publication plan
@@ -114,14 +132,19 @@ jobs:
         run: |
           echo "::error::Version ${{ steps.plan.outputs.version }} already exists in both npm and GitHub Packages. Bump package.json before publishing."
           exit 1
-      - name: Verify npm package (dry run)
-        if: steps.plan.outputs.mode == 'dry-run'
+      - name: Preflight npm OIDC environment
+        if: steps.plan.outputs.mode != 'dry-run' && steps.published.outputs.npm != 'true'
         run: |
           set -euo pipefail
-          npm whoami --registry="$NPM_REGISTRY"
-          npm publish --registry="$NPM_REGISTRY" --access public --dry-run
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::GitHub Actions OIDC is unavailable. The job needs 'permissions: id-token: write' and a GitHub-hosted runner."
+            exit 1
+          fi
+          echo "GitHub Actions OIDC request environment is available."
+          echo "This preflight does not prove that npm Trusted Publishing is configured."
+      - name: Verify npm package (dry run)
+        if: steps.plan.outputs.mode == 'dry-run'
+        run: npm publish --registry="$NPM_REGISTRY" --access public --dry-run
       - name: Verify GitHub Packages package (dry run)
         if: steps.plan.outputs.mode == 'dry-run'
         env:
@@ -137,13 +160,16 @@ jobs:
             echo
             echo "### Dry run complete"
             echo
-            echo "No package was published. This run only verified packaging and authentication."
+            echo "No package was published. This run verified packaging and GitHub Packages authentication."
+            echo
+            echo "npm Trusted Publishing is **not** validated by a dry run. Only a real npm publication proves the OIDC exchange and Trusted Publisher configuration."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Publish to npm
         if: steps.plan.outputs.mode != 'dry-run' && steps.published.outputs.npm != 'true'
+        # No NPM_TOKEN or NODE_AUTH_TOKEN: npm exchanges the GitHub Actions
+        # OIDC identity token for short-lived publishing credentials.
         run: npm publish --registry="$NPM_REGISTRY" --access public --tag "$DIST_TAG" --provenance
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           DIST_TAG: ${{ steps.plan.outputs.tag }}
       - name: Publish to GitHub Packages
         if: steps.plan.outputs.mode != 'dry-run' && steps.published.outputs.github != 'true'
@@ -200,5 +226,15 @@ jobs:
             echo
             echo "- Verified \`$PACKAGE_NAME@${{ steps.plan.outputs.version }}\` in npm and GitHub Packages."
             echo "- Dist-tag: \`${{ steps.plan.outputs.tag }}\`"
+            if [ "${{ steps.published.outputs.npm }}" != "true" ]; then
+              echo "- npm publication succeeded through GitHub Actions OIDC."
+            else
+              echo "- npm version already existed; npm publication was skipped."
+            fi
+            if [ "${{ steps.published.outputs.github }}" != "true" ]; then
+              echo "- GitHub Packages publication used the workflow GITHUB_TOKEN."
+            else
+              echo "- GitHub Packages version already existed; publication was skipped."
+            fi
             echo "- Both registries were verified after publication."
           } >> "$GITHUB_STEP_SUMMARY"

@@ -5,7 +5,7 @@ renders charts, HTML data tables and KPI metric cards from ordinary JavaScript
 data — no React, Next.js, Numiq, or CSS framework required. React is optional and
 available from a separate subpath.
 
-**Current release:** `1.0.1` — stable charts, tables, metrics, dashboards,
+**Current release:** `1.0.2` — stable charts, tables, metrics, dashboards,
 reports, export, printing and React integration for production use.
 
 Published on npm and GitHub Packages as **`@munachi-me/numviz`**.
@@ -968,11 +968,10 @@ Packages. Stable releases use the `latest` tag and prereleases use `next`; npm
 publishes also carry provenance. Manual runs default to a safe dry run and can
 publish to `latest` or `next` explicitly.
 
-The workflow uses `NPM_TOKEN` for npm because trusted publishing is not
-configured for this package. npm provenance still uses GitHub OIDC through
-`id-token: write`. GitHub Packages uses the workflow `GITHUB_TOKEN` with
-`packages: write`. To migrate to npm trusted publishing, configure the package's
-trusted publisher for this repository and workflow, then remove `NPM_TOKEN`.
+The workflow publishes to npm with Trusted Publishing through GitHub Actions
+OIDC. It does not read `NPM_TOKEN` or set `NODE_AUTH_TOKEN` for npm. The job uses
+Node.js 24 and npm 11.5.1 or newer, and requests `id-token: write`. GitHub
+Packages continues to use the workflow `GITHUB_TOKEN` with `packages: write`.
 
 The workflow checks both registries before publishing, refuses to overwrite an
 existing version, verifies the published version and dist-tag after publication,
@@ -981,10 +980,10 @@ publishes.
 
 ## Release history
 
-See [CHANGELOG.md](./CHANGELOG.md). `1.0.1` is a maintenance release with CSV
-formula injection protection and hardened npm/GitHub Packages publication
-verification. Charts, tables, metrics, dashboards, reports, export, printing and
-React integration remain backward compatible.
+See [CHANGELOG.md](./CHANGELOG.md). `1.0.2` is a publishing maintenance release
+with npm Trusted Publishing through GitHub Actions OIDC. Charts, tables, metrics,
+dashboards, reports, export, printing and React integration remain backward
+compatible.
 
 ## License
 

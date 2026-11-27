@@ -2,6 +2,27 @@
 
 All notable changes to Numviz are documented in this file.
 
+## [1.0.2] - 2026-11-27
+
+### Changed
+
+- npm publication now uses Trusted Publishing through GitHub Actions OIDC. The
+  workflow no longer reads `NPM_TOKEN` or sets `NODE_AUTH_TOKEN` for npm.
+- Publishing runs on Node.js 24 with npm 11.5.1 or newer.
+- Added an OIDC environment preflight for real publications. Dry runs explicitly
+  report that they do not validate npm Trusted Publishing.
+- Publication summaries now state whether npm was published through OIDC or
+  skipped because the version already existed.
+
+### Preserved
+
+- GitHub Packages publication and verification continue to use the workflow
+  `GITHUB_TOKEN`.
+- Release and manual dispatch triggers, dry-run default, `latest`/`next`
+  selection, duplicate checks, partial-publication recovery and post-publication
+  verification remain in place.
+- No public API changes.
+
 ## [1.0.1] - 2026-11-27
 
 ### Fixed

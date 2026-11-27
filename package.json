@@ -1,6 +1,6 @@
 {
   "name": "@munachi-me/numviz",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Framework-independent JavaScript visualization, table, metric and dashboard platform",
   "keywords": [
     "charts",
