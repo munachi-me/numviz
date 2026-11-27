@@ -1,4 +1,4 @@
-# Numviz API reference — 0.9.0
+# Numviz API reference — 1.0.0
 
 ## Entry points
 
@@ -109,6 +109,7 @@ Series fields must be unique and numeric. Unknown or non-numeric fields throw
 | `isDestroyed` | Lifecycle flag |
 | `render(target)` | Render into a selector or element; returns the chart |
 | `update(config)` | Validate and replace configuration, then redraw in place |
+| `getSummary()` | Plain-text chart description for assistive technology |
 | `setSeriesVisible(index, visible)` | Toggle a series like a legend click |
 | `toSVG(options?)` | Serialize the rendered chart to a standalone SVG string |
 | `toPNG(options?)` | Rasterize the rendered chart to a PNG `Blob` in a browser |

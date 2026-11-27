@@ -2,6 +2,7 @@ import type { ResolvedAxis, ResolvedChartConfig, TickValue } from "../../types.j
 import { svgElement } from "../../utils/dom.js";
 import { formatCategory, formatNumber } from "../../utils/format.js";
 import { truncateLabel, type LinearScale } from "../../utils/scales.js";
+import { chartSummary } from "../../utils/summary.js";
 import type { Box, RenderContext } from "../context.js";
 
 export interface ChartSvg {
@@ -24,9 +25,7 @@ export function createChartSvg(ctx: RenderContext): ChartSvg {
     "data-numviz-part": "chart"
   });
   svg.appendChild(svgElement(doc, "title", {}, label));
-  svg.appendChild(
-    svgElement(doc, "desc", {}, `A ${config.type} chart of ${config.y} by ${config.x || "count"}.`)
-  );
+  svg.appendChild(svgElement(doc, "desc", {}, chartSummary(config, ctx.data)));
   ctx.root.appendChild(svg);
   return { svg, width: config.width, height: config.height };
 }

@@ -114,6 +114,7 @@ if (chart.data.rows[0].values.revenue !== 1200) throw new Error("numeric strings
 chart.update({ type: "line", data: [{ month: "Mar", revenue: 2400 }], x: "month", y: "revenue", theme: { colors: { primary: "#7057D9" } } });
 if (chart.config.type !== "line" || chart.data.rows.length !== 1) throw new Error("chart update failed");
 if (chart.config.theme.accent !== "#7057D9") throw new Error("theme colour aliases failed");
+if (!chart.getSummary().includes("A line chart")) throw new Error("chart summary failed");
 
 let domError;
 try {
@@ -264,7 +265,7 @@ if (typeof report.print !== "function") throw new Error("report print method is 
 report.destroy();
 dashboard.destroy();
 
-console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "chart-update", "theme-colours", "no-dom", "table", "table-export", "metric", "dashboard", "dashboard-filters", "standalone-export", "report", "react-entry"] }));
+console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "chart-update", "chart-summary", "theme-colours", "no-dom", "table", "table-export", "metric", "dashboard", "dashboard-filters", "standalone-export", "report", "react-entry"] }));
 `
   );
   const runtimeOutput = run(process.execPath, ["runtime-check.mjs"], { cwd: fixture }).trim();
@@ -442,7 +443,9 @@ const tableHtml: string = table.toHTML({ includeTitle: true });
 tableCsv.length + tableJson.length + tableHtml.length;
 const chartExportOptions: ChartExportOptions = { width: 900, scale: 2 };
 const chartSvgExport: (options?: ChartExportOptions) => string = namedChart.toSVG;
+const chartSummary: string = namedChart.getSummary();
 chartSvgExport(chartExportOptions);
+chartSummary.length;
 
 const metricConfig: MetricConfig = {
   name: "Revenue",

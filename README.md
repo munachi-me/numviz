@@ -5,10 +5,18 @@ renders charts, HTML data tables and KPI metric cards from ordinary JavaScript
 data — no React, Next.js, Numiq, or CSS framework required. React is optional and
 available from a separate subpath.
 
-**Current release:** `0.9.0` — chart, table and dashboard export, print-ready
-reports, reusable report presets and safer standalone sharing.
+**Current release:** `1.0.0` — stable charts, tables, metrics, dashboards,
+reports, export, printing and React integration for production use.
 
 Published on npm as **`@munachi-me/numviz`**.
+
+## Documentation
+
+- [API reference](./docs/api.md)
+- [Framework guides](./docs/frameworks.md)
+- [Accessibility](./docs/accessibility.md)
+- [Migration guide](./docs/migration.md)
+- [Troubleshooting](./docs/troubleshooting.md)
 
 ## Install
 
@@ -758,6 +766,8 @@ Axes support `title`, `show`, `grid`, `rotate` (−90 to 90), `tickFormat`,
 - `chart.setSeriesVisible(index, visible)` mirrors legend behaviour from code.
 - `chart.setSelectedIndex(index | null)` selects a point or category and
   `chart.getSelectedIndex()` reads it back.
+- `chart.getSummary()` returns a plain-text description for assistive
+  technology, tests and exports.
 - `onClick` receives `{ type, label, field, series, value, index, originalEvent }`.
 
 ```ts
@@ -934,10 +944,10 @@ confirms that no core build file imports React.
 
 ## Release history
 
-See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: `0.9.0`
-adds chart, table and dashboard export, print-ready reports, reusable report
-presets and safer standalone sharing. Production hardening and the stable
-`1.0.0` API arrive next.
+See [CHANGELOG.md](./CHANGELOG.md). `1.0.0` is the first stable release:
+charts, tables, metrics, dashboards, reports, export, printing and React
+integration are ready for production use. Future work is additive until the
+next major version.
 
 ## License
 

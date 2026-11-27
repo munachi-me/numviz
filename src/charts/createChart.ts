@@ -19,6 +19,7 @@ import type {
   ResolvedChartConfig,
   ThemeTokens
 } from "../types.js";
+import { chartSummary } from "../utils/summary.js";
 import { resolveChart } from "./config.js";
 
 const MIN_WIDTH = 240;
@@ -56,6 +57,12 @@ class NumvizChart implements Chart {
 
   get isDestroyed(): boolean {
     return this.#destroyed;
+  }
+
+  getSummary(): string {
+    const summary = chartSummary(this.config, this.data);
+    if (this.#selectedIndex === null) return summary;
+    return `${summary} Selected index ${this.#selectedIndex}.`;
   }
 
   setSeriesVisible(index: number, visible: boolean): Chart {
