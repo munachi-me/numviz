@@ -8,7 +8,7 @@ available from a separate subpath.
 **Current release:** `1.0.0` — stable charts, tables, metrics, dashboards,
 reports, export, printing and React integration for production use.
 
-Published on npm as **`@munachi-me/numviz`**.
+Published on npm and GitHub Packages as **`@munachi-me/numviz`**.
 
 ## Documentation
 
@@ -26,6 +26,17 @@ npm install @munachi-me/numviz
 
 Numviz is an ESM-first package with bundled TypeScript declarations. It has no
 runtime dependencies.
+
+To install from GitHub Packages, authenticate with a GitHub token that can read
+packages and point the scope at the GitHub registry:
+
+```ini
+@munachi-me:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+Then run the same install command. The npm registry remains the default and
+requires no GitHub authentication.
 
 ## Quick start
 
@@ -945,10 +956,10 @@ confirms that no core build file imports React.
 ## Publishing
 
 Publishing is automated by `.github/workflows/publish.yml`. Publishing a GitHub
-release runs the full verification suite, then publishes stable releases to the
-npm `latest` tag and prereleases to the `next` tag with npm provenance. The
-workflow needs the repository secret `NPM_TOKEN`; manual runs default to a safe
-dry run.
+release runs the full verification suite, then publishes to both npm and GitHub
+Packages. Stable releases use the `latest` tag and prereleases use `next`; npm
+publishes also carry provenance. The workflow needs the repository secret
+`NPM_TOKEN`; manual runs default to a safe dry run.
 
 ## Release history
 
