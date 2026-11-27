@@ -33,6 +33,7 @@ class NumvizChart implements Chart {
   #destroyed = false;
   #cleanups: Array<() => void> = [];
   #hidden = new Set<number>();
+  #selectedIndex: number | null = null;
   #explicitWidth: boolean;
   #observer: ResizeObserver | null = null;
   #renderedWidth = 0;
@@ -43,6 +44,7 @@ class NumvizChart implements Chart {
     this.config = resolved.config;
     this.data = resolved.data;
     this.#explicitWidth = config.width !== undefined;
+    if (config.selectedIndex !== undefined) this.#selectedIndex = config.selectedIndex;
   }
 
   get element(): HTMLElement | null {
@@ -66,6 +68,22 @@ class NumvizChart implements Chart {
     return this;
   }
 
+  setSelectedIndex(index: number | null): Chart {
+    if (index !== null && (!Number.isInteger(index) || index < 0)) {
+      throw new NumvizError("Selected index must be a non-negative integer or null.", {
+        code: "INVALID_CONFIG",
+        path: "selectedIndex"
+      });
+    }
+    this.#selectedIndex = index;
+    this.#applySelection();
+    return this;
+  }
+
+  getSelectedIndex(): number | null {
+    return this.#selectedIndex;
+  }
+
   update(config: ChartConfig): Chart {
     if (this.#destroyed) {
       throw new NumvizError("This chart has been destroyed. Create a new chart to update it.", {
@@ -77,6 +95,7 @@ class NumvizChart implements Chart {
     this.config = resolved.config;
     this.data = resolved.data;
     this.#explicitWidth = config.width !== undefined;
+    if (config.selectedIndex !== undefined) this.#selectedIndex = config.selectedIndex;
     for (const index of this.#hidden) {
       if (index >= resolved.config.series.length) this.#hidden.delete(index);
     }
@@ -177,6 +196,19 @@ class NumvizChart implements Chart {
     };
 
     renderChartContent(context);
+    this.#applySelection();
+  }
+
+  #applySelection(): void {
+    const root = this.#root;
+    if (!root) return;
+    const index = this.#selectedIndex;
+    root.querySelectorAll<SVGElement>(".numviz-chart__mark").forEach((mark) => {
+      const selected = index !== null && mark.getAttribute("data-index") === String(index);
+      mark.classList.toggle("numviz-chart__mark--selected", selected);
+      if (selected) mark.setAttribute("aria-pressed", "true");
+      else mark.removeAttribute("aria-pressed");
+    });
   }
 
   #observe(container: Element): void {

@@ -182,6 +182,7 @@ const dashboard = createDashboard({
   description: "Independent metric, chart and table data",
   layout: { columns: { base: 1, sm: 2, lg: 3 }, breakpoints: { sm: 500, md: 700, lg: 900 } },
   format: { locale: "en-US", currency: "USD" },
+  filters: [{ id: "region", type: "select", field: "region", label: "Region" }],
   components: [
     {
       id: "total",
@@ -211,6 +212,13 @@ const dashboard = createDashboard({
 if (dashboard.widgets.length !== 3) throw new Error("dashboard components were not created");
 if (dashboard.config.layout.columns.lg !== 3) throw new Error("dashboard layout was not resolved");
 if (dashboard.config.format.currency !== "USD") throw new Error("dashboard format was not resolved");
+if (dashboard.config.filters.length !== 1) throw new Error("dashboard filters were not resolved");
+dashboard.setFilter("region", "North");
+if (dashboard.getFilter("region") !== "North") throw new Error("dashboard filter state is wrong");
+if (dashboard.getState().filters.region !== "North") throw new Error("dashboard state is wrong");
+const filteredMetric = dashboard.getWidget("total")?.instance;
+if (filteredMetric?.result?.value !== 100) throw new Error("dashboard filter did not update a metric");
+dashboard.clearFilters();
 let dashboardDomError;
 try {
   dashboard.render("#dashboard");
@@ -230,7 +238,7 @@ if (!standaloneRuntime.includes("NumvizStandalone")) throw new Error("standalone
 if (/from\\s+["']react|require\\(\\s*["']react/.test(standaloneRuntime)) throw new Error("standalone runtime imports React");
 dashboard.destroy();
 
-console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "chart-update", "theme-colours", "no-dom", "table", "metric", "dashboard", "standalone-export", "react-entry"] }));
+console.log(JSON.stringify({ version, checked: ["default", "named", "namespace", "validation", "normalization", "chart-update", "theme-colours", "no-dom", "table", "metric", "dashboard", "dashboard-filters", "standalone-export", "react-entry"] }));
 `
   );
   const runtimeOutput = run(process.execPath, ["runtime-check.mjs"], { cwd: fixture }).trim();
@@ -364,6 +372,9 @@ console.log(JSON.stringify({ entry: "react", ssr: true, exports: ["Chart", "Dash
   type ChartConfig,
   type Dashboard,
   type DashboardConfig,
+  type DashboardFilter,
+  type DashboardFilterChangeEvent,
+  type DashboardState,
   type MetricConfig,
   type TableConfig
 } from "${packageName}";
@@ -407,8 +418,15 @@ const namespaceMetric = Numviz.createMetric(metricConfig);
 metric.result.value;
 namespaceMetric.destroy();
 
+const dashboardFilter: DashboardFilter = {
+  id: "region",
+  type: "select",
+  field: "region",
+  label: "Region"
+};
 const dashboardConfig: DashboardConfig = {
   title: "Overview",
+  filters: [dashboardFilter],
   components: [
     {
       id: "revenue",
@@ -429,6 +447,11 @@ const dashboard: Dashboard = createDashboard(dashboardConfig);
 const namespaceDashboard: Dashboard = Numviz.createDashboard(dashboardConfig);
 dashboard.getWidget("revenue")?.instance;
 dashboard.config.layout.columns.base;
+dashboard.setFilter("region", "North");
+const state: DashboardState = dashboard.getState();
+state.filters.region;
+dashboard.on("filterchange", (event: DashboardFilterChangeEvent) => event.id);
+dashboard.clearFilters();
 namespaceDashboard.destroy();
 dashboard.destroy();
 

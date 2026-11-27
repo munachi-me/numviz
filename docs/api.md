@@ -1,4 +1,4 @@
-# Numviz API reference — 0.7.0
+# Numviz API reference — 0.8.0
 
 ## Entry points
 
@@ -407,8 +407,28 @@ dashboard.render("#dashboard");
 | `"image"` | `id`, `src`, `alt` | Optional `width`, `height`, `fit` (`cover` or `contain`) and `caption` |
 | `"custom"` | `id`, `render` | Explicit safe extension; optional `destroy` |
 
-Every component accepts `title`, `ariaLabel`, `layout` and `style`. Component
-ids must be unique and non-empty.
+Every component accepts `title`, `ariaLabel`, `layout`, `style`, `visible` and
+`crossFilter`. Component ids must be unique and non-empty. `visible: false`
+starts the widget hidden; toggle it later with `setComponentVisible`.
+
+Charts and tables may declare `crossFilter` to turn a click or row selection
+into a dashboard filter:
+
+```ts
+{
+  id: "sales",
+  type: "chart",
+  chartType: "bar",
+  data,
+  x: "region",
+  y: "revenue",
+  crossFilter: { field: "region", targets: ["records", "total"] }
+}
+```
+
+`crossFilter` accepts `field` (defaults to the chart X field or first table
+column), `targets` (defaults to every compatible widget except the source),
+`includeSelf` and `multi`.
 
 A custom component receives a context with `id`, `document`, `dashboard` and
 `component`. Its `render` callback may return a DOM node, a string or `null`.
@@ -458,6 +478,14 @@ live in `style` or dashboard `widgetStyle`:
 | `update(config)` | Validates and reconciles widgets by id |
 | `refresh()` | Re-renders against current component data |
 | `getWidget(id)` | Returns the widget component, engine and element |
+| `getFilter(id)` / `setFilter(id, value)` | Read or replace one filter value |
+| `clearFilter(id)` / `clearFilters()` | Clear one or every filter |
+| `getSelection(id)` / `setSelection(id, indices)` | Read or replace selected points or rows |
+| `setComponentVisible(id, visible)` | Show or hide one widget |
+| `getState()` / `setState(state)` | Serialize or restore dashboard state |
+| `setWidgetData(id, data, columns?)` | Replace one widget dataset |
+| `updateWidget(id, patch)` | Merge a partial component configuration |
+| `on(type, listener)` / `off(type, listener)` | Subscribe to or remove dashboard events |
 | `export(options)` | Writes a standalone HTML dashboard; Node.js only |
 | `destroy()` | Destroys child engines, clears custom components and removes output |
 
@@ -470,6 +498,95 @@ The header is configured with `header: false` to hide it, a string for plain
 header text, or an object containing `title`, `description`, `text`, `logo` and
 `className`. Top-level `title` and `description` supply the defaults. `footer`
 accepts a string, an object with `text` and `className`, or `false`.
+
+### Filters
+
+`DashboardConfig.filters` renders controls above the grid. A filter applies to
+every widget whose data contains its `field`, unless `targets` names specific
+widget ids. Multiple filters combine with AND; multi-select values combine with
+OR.
+
+```ts
+createDashboard({
+  filters: [
+    { id: "region", type: "select", field: "region", label: "Region" },
+    { id: "query", type: "search", field: "account", label: "Account" },
+    { id: "revenue", type: "number-range", field: "revenue", label: "Revenue" },
+    { id: "date", type: "date-range", field: "date", label: "Date" }
+  ],
+  components: [...]
+});
+```
+
+| Type | Value | Notes |
+| --- | --- | --- |
+| `select` | primitive or `null` | Single dropdown; options may be explicit or derived from data |
+| `multi-select` | primitive array or `null` | Multi-value dropdown; `select` also accepts `multi: true` |
+| `search` | string | Case-insensitive substring match; omit `field` to search all fields |
+| `date-range` | `{ from?, to? }` | Inclusive ISO date or timestamp range |
+| `number-range` | `{ from?, to? }` | Inclusive numeric range |
+| `custom` | any | `render(context)` returns a DOM node or text; optional `matches(row, value)` applies the value |
+
+Every filter accepts `id`, `type`, `field`, `label`, `placeholder`, `targets`,
+`defaultValue` and `className`. Select filters accept `options` as primitive
+values or `{ label, value }` objects. Range filters accept `min`, `max` and (for
+numbers) `step`. `defaultValue` is applied when the dashboard is created.
+
+Custom filters receive `{ id, document, dashboard, filter, value, setValue }`.
+Returned strings are inserted as text. `matches` receives
+`{ id, values, row }` and the current value, and returns whether the row passes.
+Custom filters cannot be serialized by standalone export.
+
+Filter state can be changed directly:
+
+```ts
+dashboard.setFilter("region", "North");
+dashboard.clearFilter("region");
+dashboard.clearFilters();
+dashboard.getFilter("region"); // "North" or null
+```
+
+Cross-filters created by chart clicks and table selection use ids of the form
+`crossfilter:<widget-id>` and appear as removable chips in the filter bar.
+
+### Events and state
+
+```ts
+const unsubscribe = dashboard.on("filterchange", ({ id, value, filters }) => {
+  console.log(id, value, filters);
+});
+
+dashboard.on("selectionchange", ({ id, indices }) => {});
+dashboard.on("widgetclick", ({ id, event }) => {});
+dashboard.on("statechange", ({ state }) => {});
+unsubscribe();
+```
+
+`getState()` returns:
+
+```ts
+{
+  filters: { region: "North" },
+  selections: { records: [0, 2] },
+  visibleComponents: { chart: false, records: true },
+  crossFilters: {
+    "crossfilter:sales": {
+      id: "crossfilter:sales",
+      source: "sales",
+      field: "region",
+      value: "North"
+    }
+  }
+}
+```
+
+`setState(state)` accepts a partial object and restores filters, selections,
+visibility and serialized cross-filters. Filters and selections survive
+`update`, `refresh`, `setWidgetData` and `updateWidget` where their widget and
+field still exist.
+
+Charts also expose point selection directly:
+`chart.setSelectedIndex(index | null)` and `chart.getSelectedIndex()`.
 
 ### Standalone export
 
@@ -522,11 +639,12 @@ dashboard/
 └── README.md
 ```
 
-Custom dashboard components cannot be exported because their `render` and
-`destroy` functions are not serializable. Function-valued callbacks on charts,
-tables and metrics are omitted; built-in hover, legend, sorting, searching and
-pagination interactions continue to work. Serve external-data dashboards over
-HTTP; browsers block local JSON requests from `file://`.
+Custom dashboard components and custom filters cannot be exported because their
+render functions are not serializable. Function-valued callbacks on charts,
+tables and metrics are omitted; built-in filters, cross-filtering, hover, legend,
+sorting, searching, selection and pagination interactions continue to work.
+Serve external-data dashboards over HTTP; browsers block local JSON requests
+from `file://`.
 
 ## React entry point
 

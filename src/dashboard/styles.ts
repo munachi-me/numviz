@@ -116,6 +116,99 @@ ${selector} .numviz-dashboard__footer {
   line-height: 1.5;
   color: var(--nv-muted-text);
 }
+${selector} .numviz-dashboard__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 12px;
+  padding: 12px 14px;
+  background: var(--nv-surface);
+  border: 1px solid var(--nv-border);
+  border-radius: var(--nv-radius);
+}
+${selector} .numviz-dashboard__filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+}
+${selector} .numviz-dashboard__filter-label {
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nv-muted-text);
+}
+${selector} .numviz-dashboard__filter-control {
+  width: 100%;
+  min-width: 150px;
+  min-height: 34px;
+  padding: 6px 9px;
+  color: var(--nv-text);
+  background: var(--nv-background);
+  border: 1px solid var(--nv-border);
+  border-radius: calc(var(--nv-radius) - 4px);
+  font: inherit;
+  font-size: 13px;
+}
+${selector} select.numviz-dashboard__filter-control[multiple] {
+  min-height: 82px;
+}
+${selector} .numviz-dashboard__filter-control:focus-visible {
+  outline: 2px solid var(--nv-accent);
+  outline-offset: 1px;
+}
+${selector} .numviz-dashboard__filter-range {
+  display: flex;
+  gap: 6px;
+}
+${selector} .numviz-dashboard__filter-range .numviz-dashboard__filter-control {
+  min-width: 0;
+}
+${selector} .numviz-dashboard__filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 6px 4px 10px;
+  font-size: 12px;
+  color: var(--nv-text);
+  background: var(--nv-surface-elevated);
+  border: 1px solid var(--nv-border);
+  border-radius: 999px;
+}
+${selector} .numviz-dashboard__filter-chip-clear,
+${selector} .numviz-dashboard__filter-clear {
+  min-height: 30px;
+  padding: 4px 10px;
+  color: var(--nv-muted-text);
+  background: transparent;
+  border: 1px solid var(--nv-border);
+  border-radius: calc(var(--nv-radius) - 4px);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+${selector} .numviz-dashboard__filter-chip-clear {
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  font-size: 16px;
+  line-height: 1;
+}
+${selector} .numviz-dashboard__filter-chip-clear:hover,
+${selector} .numviz-dashboard__filter-clear:hover {
+  color: var(--nv-text);
+  border-color: var(--nv-accent);
+}
+${selector} .numviz-dashboard__filter-chip-clear:focus-visible,
+${selector} .numviz-dashboard__filter-clear:focus-visible {
+  outline: 2px solid var(--nv-accent);
+  outline-offset: 2px;
+}
 ${grid} {
   display: grid;
   grid-template-columns: repeat(${layout.columns.base}, minmax(0, 1fr));

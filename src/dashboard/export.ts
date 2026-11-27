@@ -123,6 +123,14 @@ function assertSerializableConfig(config: DashboardConfig): void {
       );
     }
   }
+  for (const filter of config.filters ?? []) {
+    if (filter.type === "custom") {
+      throw invalid(
+        "Custom dashboard filters cannot be exported because their render functions are not serializable.",
+        `filters.${filter.id}.render`
+      );
+    }
+  }
 }
 
 function splitExternalData(config: DashboardConfig): {

@@ -111,6 +111,42 @@ describe("React Dashboard", () => {
     expect(host.querySelector(".numviz-dashboard")).toBeNull();
   });
 
+  it("renders dashboard filters and updates connected widgets", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        createElement(Dashboard, {
+          title: "Filtered",
+          filters: [
+            { id: "region", type: "select", field: "region", label: "Region" }
+          ],
+          components: [
+            {
+              id: "revenue",
+              type: "metric",
+              name: "Revenue",
+              data: sales,
+              column: "revenue",
+              aggregation: "sum"
+            }
+          ]
+        })
+      );
+    });
+    const select = host.querySelector<HTMLSelectElement>(
+      '[data-nv-filter-id="region"] select'
+    );
+    expect(select).not.toBeNull();
+    select!.value = "North";
+    await act(async () => {
+      select!.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(host.querySelector(".numviz-metric__value")?.textContent).toBe("100");
+    await act(async () => root.unmount());
+  });
+
   it("composes individual React components without the Dashboard wrapper", async () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
