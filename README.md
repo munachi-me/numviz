@@ -5,9 +5,10 @@ renders charts, HTML data tables and KPI metric cards from ordinary JavaScript
 data — no React, Next.js, Numiq, or CSS framework required. React is optional and
 available from a separate subpath.
 
-**Current release:** `0.5.0` — the dashboard composition engine, combining
-independent charts, tables, metrics and content in a responsive grid, on top of
-the 0.4.x metrics release and the 0.2.x chart and 0.3.x table foundations.
+**Current release:** `0.6.0` — framework integrations and developer experience,
+adding the React `Chart` and `DashboardWidget` components, declarative dashboard
+children, in-place chart updates, theme colour aliases and stable prop
+reconciliation on top of the 0.5.0 dashboard engine.
 
 Published on npm as **`@munachi-me/numviz`**.
 
@@ -43,7 +44,14 @@ const chart = createChart({
 
 chart.render("#chart");
 
-// Later
+// Later: update data or options without replacing the instance
+chart.update({
+  type: "line",
+  data: nextMonthRows,
+  x: "month",
+  y: "revenue"
+});
+
 chart.destroy();
 ```
 
@@ -277,8 +285,49 @@ dashboard, layout and component API, and open `examples/dashboard.html`.
 ## React and Next.js
 
 React support is optional and lives at `@munachi-me/numviz/react`. Install React
-alongside Numviz, then use the typed `Dashboard`, `DataTable` and `Metric`
-components. The core package never imports React.
+alongside Numviz, then use the typed `Chart`, `Dashboard`, `DashboardWidget`,
+`DataTable` and `Metric` components. The core package never imports React.
+
+```tsx
+import { Chart } from "@munachi-me/numviz/react";
+
+export function RevenueChart({ rows }: { rows: Record<string, unknown>[] }) {
+  return <Chart type="bar" data={rows} x="month" y="revenue" title="Revenue" />;
+}
+```
+
+`Chart` recreates nothing when a parent re-renders with equal data. When props
+change, it updates the existing chart in place.
+
+```tsx
+import { Dashboard, DashboardWidget } from "@munachi-me/numviz/react";
+
+export function Overview() {
+  return (
+    <Dashboard title="Sales Analytics" layout={{ columns: { base: 1, md: 2 } }}>
+      <DashboardWidget
+        id="revenue"
+        type="metric"
+        name="Total Revenue"
+        data={revenueRows}
+        column="revenue"
+        aggregation="sum"
+      />
+      <DashboardWidget
+        id="sales"
+        type="chart"
+        chartType="bar"
+        data={monthlyRows}
+        x="month"
+        y="revenue"
+      />
+    </Dashboard>
+  );
+}
+```
+
+`Dashboard` also accepts a `components` array. `DashboardWidget` can be used on
+its own to render one dashboard widget without the full dashboard wrapper.
 
 ```tsx
 import { DataTable } from "@munachi-me/numviz/react";
@@ -305,33 +354,25 @@ import { Metric } from "@munachi-me/numviz/react";
 />;
 ```
 
-```tsx
-import { Dashboard } from "@munachi-me/numviz/react";
+Light, dark, system and custom themes work across every component. The `colors`
+object provides friendly aliases for the token names.
 
-export function Overview() {
-  return (
-    <Dashboard
-      title="Sales Analytics"
-      components={[
-        {
-          id: "revenue",
-          type: "metric",
-          name: "Total Revenue",
-          data: revenueRows,
-          column: "revenue",
-          aggregation: "sum"
-        },
-        { id: "records", type: "table", data: employeeRows }
-      ]}
-    />
-  );
-}
+```ts
+const theme = {
+  mode: "dark",
+  colors: {
+    primary: "#7057D9",
+    background: "#111318",
+    surface: "#1B1E26",
+    text: "#FFFFFF"
+  }
+};
+
+createChart({ type: "bar", data, x: "month", y: "revenue", theme });
 ```
 
-You can also render `DataTable` and `Metric` directly without the dashboard
-wrapper. See [docs/frameworks.md](./docs/frameworks.md) for Next.js client
-boundaries, server rendering, dashboard lifecycle, controlled tables and metric
-examples.
+See [docs/frameworks.md](./docs/frameworks.md) for Next.js client boundaries,
+server rendering, dashboard composition, controlled tables and metric examples.
 
 ## Multi-series data
 
@@ -632,14 +673,14 @@ Errors are `NumvizError` instances with a `code` and optional `path`.
 | `INVALID_CONTAINER` | The render target is not a selector or element |
 | `CONTAINER_NOT_FOUND` | No element matches the selector |
 | `NO_DOM` | Rendering was attempted without a DOM |
-| `DESTROYED` | A destroyed chart is rendered again |
+| `DESTROYED` | A destroyed chart is rendered or updated again |
 
 ## Examples
 
 The `examples/` folder contains framework-free HTML pages for every chart type,
-the table engine (`table.html`, `table-themes.html`), KPI metrics
-(`metrics.html`) and dashboard composition (`dashboard.html`), plus data format
-examples:
+in-place chart updates and theme colours (`chart-updates.html`), the table engine
+(`table.html`, `table-themes.html`), KPI metrics (`metrics.html`) and dashboard
+composition (`dashboard.html`), plus data format examples:
 
 ```bash
 npm install

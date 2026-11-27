@@ -327,11 +327,14 @@ class NumvizDashboard implements Dashboard {
   ): void {
     slot.component = component;
     if (component.type === "chart") {
-      slot.instance?.destroy();
-      slot.instance = createChart(this.#chartConfig(component, config));
-      if (slot.body) {
-        slot.body.replaceChildren();
-        slot.instance.render(slot.body);
+      if (slot.instance && !slot.instance.isDestroyed) {
+        (slot.instance as Chart).update(this.#chartConfig(component, config));
+      } else {
+        slot.instance = createChart(this.#chartConfig(component, config));
+        if (slot.body) {
+          slot.body.replaceChildren();
+          slot.instance.render(slot.body);
+        }
       }
     } else if (component.type === "table") {
       (slot.instance as Table).update(this.#tableConfig(component, config));

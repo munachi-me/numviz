@@ -24,8 +24,8 @@ const RESIZE_EPSILON = 4;
 type ChartWindow = Window & typeof globalThis;
 
 class NumvizChart implements Chart {
-  readonly config: ResolvedChartConfig;
-  readonly data: NormalizedDataset;
+  config: ResolvedChartConfig;
+  data: NormalizedDataset;
 
   #root: HTMLElement | null = null;
   #container: Element | null = null;
@@ -66,6 +66,25 @@ class NumvizChart implements Chart {
     return this;
   }
 
+  update(config: ChartConfig): Chart {
+    if (this.#destroyed) {
+      throw new NumvizError("This chart has been destroyed. Create a new chart to update it.", {
+        code: "DESTROYED"
+      });
+    }
+    const resolved = resolveChart(config);
+    const container = this.#container;
+    this.config = resolved.config;
+    this.data = resolved.data;
+    this.#explicitWidth = config.width !== undefined;
+    for (const index of this.#hidden) {
+      if (index >= resolved.config.series.length) this.#hidden.delete(index);
+    }
+    if (!container) return this;
+    this.#clearRendered();
+    return this.render(container);
+  }
+
   render(target: string | Element): Chart {
     if (this.#destroyed) {
       throw new NumvizError("This chart has been destroyed. Create a new chart to render again.", {
@@ -82,7 +101,13 @@ class NumvizChart implements Chart {
     this.#view = getWindow(doc);
     const tokens = this.#tokens();
     const root = doc.createElement("div");
-    root.className = `numviz-root numviz-chart numviz-chart--${this.config.type}`;
+    const classes = [
+      "numviz-root",
+      "numviz-chart",
+      `numviz-chart--${this.config.type}`,
+      ...(this.config.className ? [this.config.className] : [])
+    ];
+    root.className = classes.join(" ");
     root.dataset.numvizRoot = "chart";
     root.dataset.numvizType = this.config.type;
     root.dataset.nvAnimation = this.config.animation.enabled ? "on" : "off";

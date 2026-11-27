@@ -100,6 +100,7 @@ describe("root public API", () => {
     const namespaceDashboard: Dashboard = api.createDashboard(dashboardConfig);
 
     expect(chart.data.rows).toHaveLength(1);
+    expect(typeof chart.update).toBe("function");
     expect(table.getState().totalRowCount).toBe(1);
     expect(metric.result.value).toBe(200);
     expect(namespaceChart.config.type).toBe("bar");

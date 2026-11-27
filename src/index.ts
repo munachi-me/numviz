@@ -52,6 +52,7 @@ export type {
   ResolvedChartConfig,
   ResolvedSeries,
   SeriesConfig,
+  ThemeColors,
   ThemeConfig,
   ThemeMode,
   ThemeTokens,

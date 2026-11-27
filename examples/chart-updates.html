@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Chart updates and themes</title>
+    <link rel="stylesheet" href="shared.css" />
+    <style>
+      .custom-chart {
+        border: 1px solid var(--nv-border);
+        border-radius: 16px;
+        padding: 8px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      .actions button {
+        border: 1px solid #cbd5e1;
+        border-radius: 999px;
+        background: #ffffff;
+        color: #0f172a;
+        cursor: pointer;
+        font: inherit;
+        padding: 8px 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← All examples</a>
+      <div id="chart"></div>
+      <div class="actions">
+        <button type="button" data-action="data">Update data</button>
+        <button type="button" data-action="line">Switch to line</button>
+        <button type="button" data-action="reset">Reset</button>
+      </div>
+      <p class="note">
+        One chart instance is updated in place with <code>chart.update()</code>.
+        The dark theme uses the friendly <code>colors</code> aliases.
+      </p>
+    </main>
+    <script type="module">
+      import { createChart } from "../dist/index.js";
+
+      const quarters = [
+        { quarter: "Q1", revenue: 32000 },
+        { quarter: "Q2", revenue: 41000 },
+        { quarter: "Q3", revenue: 38500 },
+        { quarter: "Q4", revenue: 52000 }
+      ];
+
+      const months = [
+        { month: "Jan", revenue: 24000 },
+        { month: "Feb", revenue: 28000 },
+        { month: "Mar", revenue: 26000 },
+        { month: "Apr", revenue: 31000 },
+        { month: "May", revenue: 34500 },
+        { month: "Jun", revenue: 39000 }
+      ];
+
+      const base = {
+        type: "bar",
+        data: quarters,
+        x: "quarter",
+        y: "revenue",
+        title: "Quarterly revenue",
+        subtitle: "Updated in place",
+        className: "custom-chart",
+        theme: {
+          mode: "dark",
+          colors: {
+            primary: "#7057D9",
+            background: "#111318",
+            surface: "#1B1E26",
+            text: "#FFFFFF",
+            mutedText: "#AAB2C8",
+            border: "#333A4A",
+            grid: "#252B38"
+          }
+        }
+      };
+
+      const chart = createChart(base).render("#chart");
+
+      document.querySelector(".actions").addEventListener("click", (event) => {
+        const action = event.target.closest("button")?.dataset.action;
+        if (action === "data") {
+          chart.update({ ...base, data: months, x: "month", title: "Monthly revenue" });
+        }
+        if (action === "line") {
+          chart.update({ ...base, type: "line", data: months, x: "month", title: "Monthly revenue" });
+        }
+        if (action === "reset") chart.update(base);
+      });
+    </script>
+  </body>
+</html>

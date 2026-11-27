@@ -116,6 +116,7 @@ function validateStrings(config: ChartConfig): void {
     ["title", config.title],
     ["subtitle", config.subtitle],
     ["background", config.background],
+    ["className", config.className],
     ["ariaLabel", config.ariaLabel]
   ] as const) {
     if (value !== undefined && typeof value !== "string") {
@@ -250,6 +251,7 @@ export function resolveChart(config: ChartConfig): ResolvedChart {
     animation: resolveAnimation(config.animation),
     ...(config.title !== undefined ? { title: config.title } : {}),
     ...(config.subtitle !== undefined ? { subtitle: config.subtitle } : {}),
+    ...(config.className !== undefined ? { className: config.className } : {}),
     ...(config.ariaLabel !== undefined ? { ariaLabel: config.ariaLabel } : {}),
     ...(config.bins !== undefined ? { bins: resolveBins(config.bins) } : {}),
     ...(config.onClick !== undefined ? { onClick: config.onClick } : {})

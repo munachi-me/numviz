@@ -75,9 +75,28 @@ export interface ThemeTokens {
   readonly chartPalette: readonly string[];
 }
 
+/** Colour aliases accepted by the theme system. */
+export interface ThemeColors {
+  /** Primary accent colour. Alias for `accent`. */
+  primary?: string;
+  background?: string;
+  surface?: string;
+  surfaceElevated?: string;
+  text?: string;
+  mutedText?: string;
+  border?: string;
+  grid?: string;
+  positive?: string;
+  warning?: string;
+  danger?: string;
+  info?: string;
+}
+
 /** Theme configuration accepted by charts. */
 export interface ThemeConfig {
   mode?: ThemeMode;
+  /** Friendly colour names mapped onto the corresponding theme tokens. */
+  colors?: ThemeColors;
   accent?: string;
   fontFamily?: string;
   borderRadius?: number;
@@ -211,6 +230,8 @@ export interface ChartConfig {
   /** Series colours. Alias: `theme.chartPalette`. */
   palette?: readonly string[];
   background?: string;
+  /** Extra class name applied to the chart root. */
+  className?: string;
   legend?: boolean | LegendConfig;
   labels?: boolean | LabelConfig;
   tooltip?: boolean | TooltipConfig;
@@ -239,6 +260,7 @@ export interface ResolvedChartConfig {
   readonly height: number;
   readonly palette: readonly string[];
   readonly background: string;
+  readonly className?: string;
   readonly legend: {
     readonly show: boolean;
     readonly position: LegendPosition;
@@ -291,6 +313,8 @@ export interface Chart {
   readonly isDestroyed: boolean;
   /** Shows or hides a series by index, mirroring a legend interaction. */
   setSeriesVisible(index: number, visible: boolean): Chart;
+  /** Replace the chart configuration and redraw when rendered. */
+  update(config: ChartConfig): Chart;
   /** Render the chart into a selector or DOM element. */
   render(target: string | Element): Chart;
   /** Remove rendered output and release listeners. */
