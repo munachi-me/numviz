@@ -35,8 +35,9 @@ packages and point the scope at the GitHub registry:
 //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
 ```
 
-Then run the same install command. The npm registry remains the default and
-requires no GitHub authentication.
+Then run the same install command. GitHub Packages access follows the package's
+permissions, so grant read access in package settings if the package is private.
+The npm registry remains the default and requires no GitHub authentication.
 
 ## Quick start
 
