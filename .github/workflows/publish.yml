@@ -1,5 +1,7 @@
 name: Publish packages
 
+run-name: ${{ github.event_name == 'release' && format('Release {0}', github.event.release.tag_name) || format('Manual {0}', inputs.dry_run && 'dry run' || 'publish') }}
+
 on:
   release:
     types: [published]
@@ -9,6 +11,13 @@ on:
         description: Verify the package without publishing
         type: boolean
         default: true
+      dist_tag:
+        description: Dist-tag for manual publication
+        type: choice
+        options:
+          - latest
+          - next
+        default: latest
 
 permissions:
   contents: read
@@ -16,12 +25,16 @@ permissions:
   packages: write
 
 concurrency:
-  group: npm-publish
+  group: publish-packages
   cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      PACKAGE_NAME: "@munachi-me/numviz"
+      NPM_REGISTRY: "https://registry.npmjs.org"
+      GITHUB_REGISTRY: "https://npm.pkg.github.com"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,56 +44,150 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: npm ci
       - run: npm run verify
-      - name: Publish stable release to npm
-        if: github.event_name == 'release' && !github.event.release.prerelease
-        run: npm publish --access public --provenance
+      - name: Resolve publication plan
+        id: plan
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Publish prerelease to npm
-        if: github.event_name == 'release' && github.event.release.prerelease
-        run: npm publish --access public --tag next --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Publish stable release to GitHub Packages
-        if: github.event_name == 'release' && !github.event.release.prerelease
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_DIST_TAG: ${{ inputs.dist_tag }}
         run: |
-          npm config set @munachi-me:registry https://npm.pkg.github.com
-          npm config set //npm.pkg.github.com/:_authToken "$NODE_AUTH_TOKEN"
-          npm publish --registry=https://npm.pkg.github.com --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish prerelease to GitHub Packages
-        if: github.event_name == 'release' && github.event.release.prerelease
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          if [ "$EVENT_NAME" = "release" ]; then
+            mode="release"
+            if [ "$RELEASE_PRERELEASE" = "true" ]; then tag="next"; else tag="latest"; fi
+          else
+            mode="publish"
+            if [ "$INPUT_DRY_RUN" = "true" ]; then mode="dry-run"; fi
+            tag="${INPUT_DIST_TAG:-latest}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Publication plan"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Package | \`$PACKAGE_NAME\` |"
+            echo "| Version | \`$version\` |"
+            echo "| Mode | \`$mode\` |"
+            echo "| Dist-tag | \`$tag\` |"
+            echo "| Registries | npm, GitHub Packages |"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Configure GitHub Packages authentication
         run: |
-          npm config set @munachi-me:registry https://npm.pkg.github.com
-          npm config set //npm.pkg.github.com/:_authToken "$NODE_AUTH_TOKEN"
-          npm publish --registry=https://npm.pkg.github.com --access public --tag next
+          set -euo pipefail
+          npm config set "@munachi-me:registry" "https://npm.pkg.github.com"
+          npm config set "//npm.pkg.github.com/:_authToken" "$GITHUB_TOKEN"
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Verify npm package only
-        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check published versions
+        id: published
+        run: |
+          set -euo pipefail
+          version="${{ steps.plan.outputs.version }}"
+          npm_found=false
+          github_found=false
+          if npm view "$PACKAGE_NAME@$version" version --registry="$NPM_REGISTRY" >/dev/null 2>&1; then
+            npm_found=true
+          fi
+          if npm view "$PACKAGE_NAME@$version" version --registry="$GITHUB_REGISTRY" >/dev/null 2>&1; then
+            github_found=true
+          fi
+          echo "npm=$npm_found" >> "$GITHUB_OUTPUT"
+          echo "github=$github_found" >> "$GITHUB_OUTPUT"
+          {
+            echo
+            echo "### Registry state"
+            echo
+            echo "- npm: \`$npm_found\`"
+            echo "- GitHub Packages: \`$github_found\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Reject duplicate publication
+        if: steps.plan.outputs.mode != 'dry-run' && (steps.published.outputs.npm == 'true' || steps.published.outputs.github == 'true')
+        run: |
+          echo "::error::Version ${{ steps.plan.outputs.version }} already exists in npm or GitHub Packages. Bump package.json before publishing."
+          exit 1
+      - name: Verify npm package (dry run)
+        if: steps.plan.outputs.mode == 'dry-run'
         run: npm publish --access public --dry-run
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Verify GitHub Packages package only
-        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+      - name: Verify GitHub Packages package (dry run)
+        if: steps.plan.outputs.mode == 'dry-run'
         run: |
-          npm config set @munachi-me:registry https://npm.pkg.github.com
-          npm config set //npm.pkg.github.com/:_authToken "$GITHUB_TOKEN"
-          npm whoami --registry=https://npm.pkg.github.com
-          npm publish --registry=https://npm.pkg.github.com --access public --dry-run
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish manually to npm
-        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
-        run: npm publish --access public --provenance
+          set -euo pipefail
+          npm whoami --registry="$GITHUB_REGISTRY"
+          npm publish --registry="$GITHUB_REGISTRY" --access public --dry-run
+      - name: Record dry-run result
+        if: steps.plan.outputs.mode == 'dry-run'
+        run: |
+          {
+            echo
+            echo "### Dry run complete"
+            echo
+            echo "No package was published. This run only verified packaging and authentication."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish to npm
+        if: steps.plan.outputs.mode != 'dry-run'
+        run: npm publish --access public --tag "$DIST_TAG" --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Publish manually to GitHub Packages
-        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
-        run: |
-          npm config set @munachi-me:registry https://npm.pkg.github.com
-          npm config set //npm.pkg.github.com/:_authToken "$NODE_AUTH_TOKEN"
-          npm publish --registry=https://npm.pkg.github.com --access public
+          DIST_TAG: ${{ steps.plan.outputs.tag }}
+      - name: Publish to GitHub Packages
+        if: steps.plan.outputs.mode != 'dry-run'
+        run: npm publish --registry="$GITHUB_REGISTRY" --access public --tag "$DIST_TAG"
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DIST_TAG: ${{ steps.plan.outputs.tag }}
+      - name: Verify npm publication
+        if: steps.plan.outputs.mode != 'dry-run'
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+          DIST_TAG: ${{ steps.plan.outputs.tag }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 18); do
+            published="$(npm view "$PACKAGE_NAME@$VERSION" version --registry="$NPM_REGISTRY" 2>/dev/null || true)"
+            tarball="$(npm view "$PACKAGE_NAME@$VERSION" dist.tarball --registry="$NPM_REGISTRY" 2>/dev/null || true)"
+            tag_version="$(npm view "$PACKAGE_NAME" "dist-tags.$DIST_TAG" --registry="$NPM_REGISTRY" 2>/dev/null || true)"
+            if [ "$published" = "$VERSION" ] && [ -n "$tarball" ] && [ "$tag_version" = "$VERSION" ]; then
+              echo "npm verification passed: $PACKAGE_NAME@$VERSION ($DIST_TAG)"
+              exit 0
+            fi
+            echo "npm not ready (attempt $attempt/18): version=$published tag=$tag_version"
+            sleep 10
+          done
+          echo "::error::npm publication verification failed for $PACKAGE_NAME@$VERSION"
+          exit 1
+      - name: Verify GitHub Packages publication
+        if: steps.plan.outputs.mode != 'dry-run'
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+          DIST_TAG: ${{ steps.plan.outputs.tag }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 18); do
+            published="$(npm view "$PACKAGE_NAME@$VERSION" version --registry="$GITHUB_REGISTRY" 2>/dev/null || true)"
+            tag_version="$(npm view "$PACKAGE_NAME" "dist-tags.$DIST_TAG" --registry="$GITHUB_REGISTRY" 2>/dev/null || true)"
+            if [ "$published" = "$VERSION" ] && [ "$tag_version" = "$VERSION" ]; then
+              echo "GitHub Packages verification passed: $PACKAGE_NAME@$VERSION ($DIST_TAG)"
+              exit 0
+            fi
+            echo "GitHub Packages not ready (attempt $attempt/18): version=$published tag=$tag_version"
+            sleep 10
+          done
+          echo "::error::GitHub Packages publication verification failed for $PACKAGE_NAME@$VERSION"
+          exit 1
+      - name: Record publication result
+        if: steps.plan.outputs.mode != 'dry-run'
+        run: |
+          {
+            echo
+            echo "### Publication complete"
+            echo
+            echo "- Published \`$PACKAGE_NAME@${{ steps.plan.outputs.version }}\` to npm and GitHub Packages."
+            echo "- Dist-tag: \`${{ steps.plan.outputs.tag }}\`"
+            echo "- Both registries were verified after publication."
+          } >> "$GITHUB_STEP_SUMMARY"

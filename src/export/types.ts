@@ -37,6 +37,11 @@ export interface TableCSVExportOptions extends TableExportOptions {
   readonly bom?: boolean;
   /** Line ending. Defaults to `\n`. */
   readonly lineEnding?: string;
+  /**
+   * Prefix spreadsheet formula starters with an apostrophe. Defaults to true.
+   * Disable only when the output is consumed by a trusted, non-spreadsheet parser.
+   */
+  readonly formulaProtection?: boolean;
 }
 
 /** Options for {@link Table.toJSON}. */
