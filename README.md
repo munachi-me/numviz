@@ -942,6 +942,14 @@ dashboard runtime behaviour, root declaration resolution and the separate React
 subpath. It also server-renders `Dashboard`, `DataTable` and `Metric` and
 confirms that no core build file imports React.
 
+## Publishing
+
+Publishing is automated by `.github/workflows/publish.yml`. Publishing a GitHub
+release runs the full verification suite, then publishes stable releases to the
+npm `latest` tag and prereleases to the `next` tag with npm provenance. The
+workflow needs the repository secret `NPM_TOKEN`; manual runs default to a safe
+dry run.
+
 ## Release history
 
 See [CHANGELOG.md](./CHANGELOG.md). `1.0.0` is the first stable release:
