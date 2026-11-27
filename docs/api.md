@@ -1,4 +1,4 @@
-# Numviz API reference — 0.6.0
+# Numviz API reference — 0.7.0
 
 ## Entry points
 
@@ -36,7 +36,9 @@ Type exports include `Chart`, `ChartConfig`, `ChartType`, `ChartClickEvent`,
 `DashboardMetricComponent`, `DashboardHeadingComponent`,
 `DashboardTextComponent`, `DashboardDescriptionComponent`,
 `DashboardDividerComponent`, `DashboardImageComponent`,
-`DashboardCustomComponent`, `DashboardWidget`, `DashboardLayout`,
+`DashboardCustomComponent`, `DashboardDataMode`, `DashboardExportFile`,
+`DashboardExportFormat`, `DashboardExportOptions`, `DashboardExportResult`,
+`DashboardWidget`, `DashboardLayout`,
 `DashboardColumns`, `DashboardBreakpoints`, `DashboardComponentLayout`,
 `DashboardWidgetStyle`, `DashboardFormatConfig`, `DashboardHeaderConfig`,
 `DashboardFooterConfig`, `DashboardVariant`, `ResolvedDashboardConfig` and
@@ -456,17 +458,75 @@ live in `style` or dashboard `widgetStyle`:
 | `update(config)` | Validates and reconciles widgets by id |
 | `refresh()` | Re-renders against current component data |
 | `getWidget(id)` | Returns the widget component, engine and element |
+| `export(options)` | Writes a standalone HTML dashboard; Node.js only |
 | `destroy()` | Destroys child engines, clears custom components and removes output |
 
 `config`, `widgets`, `element` and `isDestroyed` are readable properties. Table
 and metric engines are preserved across updates where the id and type match;
-charts are recreated because their engine has no partial update method. Removed
-widgets and their engines are always destroyed.
+chart widgets are updated in place where possible. Removed widgets and their
+engines are always destroyed.
 
 The header is configured with `header: false` to hide it, a string for plain
-header text, or an object containing `title`, `description`, `text` and
+header text, or an object containing `title`, `description`, `text`, `logo` and
 `className`. Top-level `title` and `description` supply the defaults. `footer`
 accepts a string, an object with `text` and `className`, or `false`.
+
+### Standalone export
+
+`dashboard.export(options)` writes a static dashboard that includes its own
+Numviz runtime. The generated project does not need Numviz, React, Next.js or a
+backend. Export is asynchronous and requires Node.js filesystem access.
+
+```ts
+const result = await dashboard.export({
+  format: "html",
+  output: "./dashboard",
+  data: "embedded",
+  title: "Sales Analytics",
+  description: "Business performance overview",
+  theme: { mode: "dark", colors: { primary: "#7057D9" } }
+});
+
+console.log(result.output, result.files);
+```
+
+| Option | Description |
+| --- | --- |
+| `format` | Only `"html"` is supported |
+| `output` | Directory to create, or a `.html` path for single-file output |
+| `data` | `"embedded"` (default) or `"external"` |
+| `title`, `description` | Override the generated dashboard header |
+| `logo` | Logo URL or data URI shown in the header |
+| `theme` | Theme override, including colours and `fontFamily` |
+| `fontFamily` | Convenience equivalent to `theme.fontFamily` |
+| `background` | Page and dashboard background |
+| `layout` | Dashboard grid layout override |
+| `header`, `footer` | Header/footer overrides, or `false` to hide |
+
+`DashboardExportResult` contains the resolved absolute `output`, `singleFile`,
+`data` mode and the list of written `files` with byte sizes.
+
+Directory output writes `index.html`, `assets/styles.css`,
+`assets/dashboard.js`, `assets/numviz/runtime.js` and `README.md`. External data
+adds `data/data.json`. Single-file output inlines the runtime, styles and data,
+and therefore requires `data: "embedded"`.
+
+```text
+dashboard/
+├── index.html
+├── assets/
+│   ├── styles.css
+│   ├── dashboard.js
+│   └── numviz/runtime.js
+├── data/data.json
+└── README.md
+```
+
+Custom dashboard components cannot be exported because their `render` and
+`destroy` functions are not serializable. Function-valued callbacks on charts,
+tables and metrics are omitted; built-in hover, legend, sorting, searching and
+pagination interactions continue to work. Serve external-data dashboards over
+HTTP; browsers block local JSON requests from `file://`.
 
 ## React entry point
 

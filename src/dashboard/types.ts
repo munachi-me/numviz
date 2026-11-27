@@ -153,6 +153,7 @@ export interface DashboardHeaderConfig {
   readonly title?: string;
   readonly description?: string;
   readonly text?: string;
+  readonly logo?: string;
   readonly className?: string;
 }
 
@@ -213,6 +214,7 @@ export interface ResolvedDashboardHeader {
   readonly title?: string;
   readonly description?: string;
   readonly text?: string;
+  readonly logo?: string;
   readonly className?: string;
 }
 
@@ -241,6 +243,60 @@ export interface ResolvedDashboardConfig {
   readonly className?: string;
 }
 
+/** Output format supported by {@link Dashboard.export}. */
+export type DashboardExportFormat = "html";
+
+/** How a generated dashboard stores its component data. */
+export type DashboardDataMode = "embedded" | "external";
+
+/** Options for generating a standalone dashboard project. */
+export interface DashboardExportOptions {
+  /** Output format. Only HTML is currently supported. */
+  readonly format?: DashboardExportFormat;
+  /**
+   * Directory to create, or a `.html` path for a single-file dashboard.
+   * Relative paths resolve from the current working directory.
+   */
+  readonly output: string;
+  /** Embed data in the page or write `data/data.json`. Defaults to embedded. */
+  readonly data?: DashboardDataMode;
+  /** Override the generated dashboard title. */
+  readonly title?: string;
+  /** Override the generated dashboard description. */
+  readonly description?: string;
+  /** Logo URL or data URI shown in the dashboard header. */
+  readonly logo?: string;
+  /** Override the dashboard theme. */
+  readonly theme?: ThemeConfig;
+  /** Override the page and dashboard background. */
+  readonly background?: string;
+  /** Override the dashboard grid layout. */
+  readonly layout?: DashboardLayout;
+  /** Convenience font override, equivalent to `theme.fontFamily`. */
+  readonly fontFamily?: string;
+  /** Override the generated header, or pass `false` to hide it. */
+  readonly header?: DashboardHeaderConfig | string | false;
+  /** Override the generated footer, or pass `false` to hide it. */
+  readonly footer?: DashboardFooterConfig | string | false;
+}
+
+/** One file written by {@link Dashboard.export}. */
+export interface DashboardExportFile {
+  /** Path relative to the output directory, or the file name for single-file output. */
+  readonly path: string;
+  readonly bytes: number;
+}
+
+/** Result returned by {@link Dashboard.export}. */
+export interface DashboardExportResult {
+  readonly format: DashboardExportFormat;
+  /** Absolute output path. */
+  readonly output: string;
+  readonly singleFile: boolean;
+  readonly data: DashboardDataMode;
+  readonly files: readonly DashboardExportFile[];
+}
+
 /** Public handle for a rendered dashboard child. */
 export interface DashboardWidget {
   readonly id: string;
@@ -264,5 +320,10 @@ export interface Dashboard {
   refresh(): Dashboard;
   /** Look up a widget by component id. */
   getWidget(id: string): DashboardWidget | null;
+  /**
+   * Generate a standalone HTML dashboard that does not require Numviz or a
+   * framework at runtime. Requires Node.js filesystem access.
+   */
+  export(options: DashboardExportOptions): Promise<DashboardExportResult>;
   destroy(): void;
 }

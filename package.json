@@ -1,6 +1,6 @@
 {
   "name": "@munachi-me/numviz",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Framework-independent JavaScript visualization, table, metric and dashboard platform",
   "keywords": [
     "charts",
@@ -45,7 +45,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "node scripts/clean.mjs && tsc -p tsconfig.build.json",
+    "build": "node scripts/clean.mjs && tsc -p tsconfig.build.json && node scripts/build-standalone-runtime.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
@@ -53,6 +53,7 @@
     "verify": "npm run typecheck && npm run lint && npm run test && npm run build && node scripts/consumer-test.mjs"
   },
   "devDependencies": {
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

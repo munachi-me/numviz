@@ -27,6 +27,8 @@ import type {
   DashboardComponentLayout,
   DashboardConfig,
   DashboardCustomComponent,
+  DashboardExportOptions,
+  DashboardExportResult,
   DashboardWidget,
   DashboardWidgetStyle,
   ResolvedDashboardConfig,
@@ -110,6 +112,16 @@ class NumvizDashboard implements Dashboard {
   getWidget(id: string): DashboardWidget | null {
     const slot = this.#slots.find((entry) => entry.id === id);
     return slot ? this.#publicWidget(slot) : null;
+  }
+
+  async export(options: DashboardExportOptions): Promise<DashboardExportResult> {
+    if (this.#destroyed) {
+      throw new NumvizError("This dashboard has been destroyed. Create a new dashboard to export it.", {
+        code: "DESTROYED"
+      });
+    }
+    const { exportDashboard } = await import("./export.js");
+    return exportDashboard(this.#source, options);
   }
 
   render(target: string | Element): Dashboard {
@@ -412,6 +424,14 @@ class NumvizDashboard implements Dashboard {
     const element = doc.createElement("header");
     element.className = "numviz-dashboard__header";
     if (header.className) element.classList.add(...header.className.split(/\s+/).filter(Boolean));
+    if (header.logo) {
+      const logo = doc.createElement("img");
+      logo.className = "numviz-dashboard__logo";
+      logo.src = header.logo;
+      logo.alt = "";
+      logo.decoding = "async";
+      element.appendChild(logo);
+    }
     if (header.title) {
       const title = doc.createElement("h1");
       title.className = "numviz-dashboard__title";
