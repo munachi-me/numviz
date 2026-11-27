@@ -2,6 +2,7 @@ import { NumvizError } from "../errors.js";
 import { resolveThemeConfig } from "../theme/validate.js";
 import type { ThemeConfig } from "../types.js";
 import { isPlainObject, requireNonEmptyString } from "../utils/validate.js";
+import { resolveFilters } from "./filters.js";
 import type {
   DashboardAlignment,
   DashboardBreakpoint,
@@ -10,6 +11,7 @@ import type {
   DashboardComponent,
   DashboardComponentLayout,
   DashboardConfig,
+  DashboardCrossFilterConfig,
   DashboardFooterConfig,
   DashboardHeaderConfig,
   DashboardImageFit,
@@ -331,6 +333,52 @@ function resolveComponentLayout(
   };
 }
 
+function resolveCrossFilter(value: unknown, path: string): DashboardCrossFilterConfig | undefined {
+  if (value === undefined) return undefined;
+  if (!isPlainObject(value)) {
+    throw new NumvizError(`\`${path}\` must be an object.`, {
+      code: "INVALID_CONFIG",
+      path
+    });
+  }
+  const crossFilter = value as DashboardCrossFilterConfig;
+  const field = optionalString(crossFilter.field, `${path}.field`);
+  let targets: readonly string[] | undefined;
+  if (crossFilter.targets !== undefined) {
+    if (!Array.isArray(crossFilter.targets)) {
+      throw new NumvizError(`\`${path}.targets\` must be an array of widget ids.`, {
+        code: "INVALID_CONFIG",
+        path: `${path}.targets`
+      });
+    }
+    targets = [
+      ...new Set(
+        crossFilter.targets.map((target, index) =>
+          requireNonEmptyString(target, `${path}.targets[${index}]`)
+        )
+      )
+    ];
+  }
+  if (crossFilter.includeSelf !== undefined && typeof crossFilter.includeSelf !== "boolean") {
+    throw new NumvizError(`\`${path}.includeSelf\` must be a boolean.`, {
+      code: "INVALID_CONFIG",
+      path: `${path}.includeSelf`
+    });
+  }
+  if (crossFilter.multi !== undefined && typeof crossFilter.multi !== "boolean") {
+    throw new NumvizError(`\`${path}.multi\` must be a boolean.`, {
+      code: "INVALID_CONFIG",
+      path: `${path}.multi`
+    });
+  }
+  return {
+    ...(field !== undefined ? { field } : {}),
+    ...(targets !== undefined ? { targets } : {}),
+    ...(crossFilter.includeSelf !== undefined ? { includeSelf: crossFilter.includeSelf } : {}),
+    ...(crossFilter.multi !== undefined ? { multi: crossFilter.multi } : {})
+  };
+}
+
 function validateComponent(component: unknown, index: number): DashboardComponent {
   const path = `components[${index}]`;
   if (!isPlainObject(component)) {
@@ -358,6 +406,13 @@ function validateComponent(component: unknown, index: number): DashboardComponen
     candidate.style as DashboardWidgetStyle | undefined,
     `${path}.style`
   );
+  if (candidate.visible !== undefined && typeof candidate.visible !== "boolean") {
+    throw new NumvizError(`\`${path}.visible\` must be a boolean.`, {
+      code: "INVALID_CONFIG",
+      path: `${path}.visible`
+    });
+  }
+  const crossFilter = resolveCrossFilter(candidate.crossFilter, `${path}.crossFilter`);
 
   if (type === "heading") {
     const text = requireNonEmptyString(candidate.text, `${path}.text`);
@@ -382,7 +437,9 @@ function validateComponent(component: unknown, index: number): DashboardComponen
       title,
       ariaLabel,
       layout,
-      style
+      style,
+      ...(candidate.visible !== undefined ? { visible: candidate.visible } : {}),
+      ...(crossFilter !== undefined ? { crossFilter } : {})
     } as unknown as DashboardComponent;
   }
   if (type === "text" || type === "description") {
@@ -394,7 +451,9 @@ function validateComponent(component: unknown, index: number): DashboardComponen
       title,
       ariaLabel,
       layout,
-      style
+      style,
+      ...(candidate.visible !== undefined ? { visible: candidate.visible } : {}),
+      ...(crossFilter !== undefined ? { crossFilter } : {})
     } as unknown as DashboardComponent;
   }
   if (type === "divider") {
@@ -404,7 +463,9 @@ function validateComponent(component: unknown, index: number): DashboardComponen
       title,
       ariaLabel,
       layout,
-      style
+      style,
+      ...(candidate.visible !== undefined ? { visible: candidate.visible } : {}),
+      ...(crossFilter !== undefined ? { crossFilter } : {})
     } as unknown as DashboardComponent;
   }
   if (type === "image") {
@@ -448,7 +509,9 @@ function validateComponent(component: unknown, index: number): DashboardComponen
       title,
       ariaLabel,
       layout,
-      style
+      style,
+      ...(candidate.visible !== undefined ? { visible: candidate.visible } : {}),
+      ...(crossFilter !== undefined ? { crossFilter } : {})
     } as unknown as DashboardComponent;
   }
   if (type === "custom") {
@@ -472,7 +535,9 @@ function validateComponent(component: unknown, index: number): DashboardComponen
       title,
       ariaLabel,
       layout,
-      style
+      style,
+      ...(candidate.visible !== undefined ? { visible: candidate.visible } : {}),
+      ...(crossFilter !== undefined ? { crossFilter } : {})
     } as unknown as DashboardComponent;
   }
   return {
@@ -481,7 +546,9 @@ function validateComponent(component: unknown, index: number): DashboardComponen
     title,
     ariaLabel,
     layout,
-    style
+    style,
+    ...(candidate.visible !== undefined ? { visible: candidate.visible } : {}),
+    ...(crossFilter !== undefined ? { crossFilter } : {})
   } as unknown as DashboardComponent;
 }
 
@@ -608,6 +675,7 @@ export function resolveDashboard(config: DashboardConfig): ResolvedDashboardConf
     header: resolveHeader(config, config.header),
     footer: resolveFooter(config.footer),
     format: resolveFormat(config.format),
-    widgetStyle: resolveWidgetStyle(config.widgetStyle, "widgetStyle")
+    widgetStyle: resolveWidgetStyle(config.widgetStyle, "widgetStyle"),
+    filters: resolveFilters(config.filters)
   };
 }

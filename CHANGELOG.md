@@ -2,6 +2,48 @@
 
 All notable changes to Numviz are documented in this file.
 
+## [0.8.0] - 2026-11-26
+
+### Added
+
+- Dashboard filter bar with `select`, `multi-select`, `search`, `date-range`,
+  `number-range` and custom filters. Select options can be explicit or derived
+  from connected component data.
+- Filter targeting with `targets`, defaults and AND/OR semantics. Filters apply
+  to charts, tables and metrics without replacing their engines.
+- Chart and table cross-filtering through `crossFilter`. Chart clicks and table
+  row selection filter connected widgets and render removable filter chips.
+- Point selection with `chart.setSelectedIndex(index | null)` and
+  `chart.getSelectedIndex()`. Selected marks receive
+  `numviz-chart__mark--selected`.
+- Dashboard selection APIs: `getSelection(id)` and `setSelection(id, indices)`.
+- Dashboard events: `filterchange`, `selectionchange`, `widgetclick` and
+  `statechange`, with `on`/`off` subscriptions.
+- Serializable dashboard state through `getState()` and `setState()`, including
+  filters, selections, widget visibility and cross-filter definitions.
+- Direct state methods `setFilter`, `clearFilter`, `clearFilters`,
+  `setComponentVisible`, `setWidgetData` and `updateWidget`.
+- Initial widget visibility with `visible` and configurable cross-filter
+  `field`, `targets`, `includeSelf` and `multi`.
+- Filter controls and interactive behaviour in standalone dashboard exports.
+- Public types for filters, cross-filters, events, state and filter contexts.
+
+### Changed
+
+- Dashboard updates preserve active filters, selections and visibility when the
+  widget and field still exist.
+- Standalone export rejects custom filters as well as custom components because
+  their render functions are not serializable.
+- The filter bar, controls and active cross-filter chips use the dashboard
+  theme tokens and responsive layout.
+
+### Verified
+
+- 224 tests pass, including filter controls, search, ranges, multi-select,
+  targeting, cross-filtering, chart/table selection, events, state restore,
+  dynamic data updates, standalone export and invalid configuration.
+- Standalone filtered dashboards render and filter correctly in jsdom.
+
 ## [0.7.0] - 2026-11-27
 
 ### Added

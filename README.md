@@ -5,9 +5,8 @@ renders charts, HTML data tables and KPI metric cards from ordinary JavaScript
 data — no React, Next.js, Numiq, or CSS framework required. React is optional and
 available from a separate subpath.
 
-**Current release:** `0.7.0` — standalone dashboard export, adding a Node.js
-`dashboard.export()` API that writes a complete static dashboard with its own
-runtime. Generated dashboards work without Numviz, React or a backend.
+**Current release:** `0.8.0` — interactive dashboards with filter controls,
+cross-filtering, selection, events and serializable dashboard state.
 
 Published on npm as **`@munachi-me/numviz`**.
 
@@ -279,7 +278,99 @@ dashboard.render("#dashboard");
   instance, so columns and breakpoints do not leak between dashboards.
 
 See [docs/api.md](./docs/api.md#createdashboardconfig-dashboard) for the complete
-dashboard, layout and component API, and open `examples/dashboard.html`.
+dashboard, layout and component API, and open `examples/dashboard.html` or
+`examples/dashboard-filters.html`.
+
+## Interactive dashboards
+
+Dashboards can declare filter controls above the grid. A filter targets every
+widget that contains its field, or only the widget ids in `targets`.
+
+```ts
+const dashboard = createDashboard({
+  filters: [
+    {
+      id: "region",
+      type: "select",
+      field: "region",
+      label: "Region",
+      placeholder: "All regions"
+    },
+    {
+      id: "search",
+      type: "search",
+      field: "account",
+      label: "Account"
+    },
+    {
+      id: "revenue",
+      type: "number-range",
+      field: "revenue",
+      label: "Revenue",
+      targets: ["total", "records"]
+    }
+  ],
+  components: [
+    {
+      id: "total",
+      type: "metric",
+      name: "Total revenue",
+      data: rows,
+      column: "revenue",
+      aggregation: "sum",
+      format: "currency"
+    },
+    {
+      id: "chart",
+      type: "chart",
+      chartType: "bar",
+      data: rows,
+      x: "region",
+      y: "revenue",
+      crossFilter: { field: "region" }
+    },
+    {
+      id: "records",
+      type: "table",
+      data: rows,
+      columns: ["region", "account", "revenue"],
+      crossFilter: { field: "region" }
+    }
+  ]
+});
+
+dashboard.render("#dashboard");
+```
+
+- **Filter types**: `select`, `multi-select`, `search`, `date-range`,
+  `number-range` and `custom`. Select options may be supplied explicitly or
+  derived from connected component data. Custom filters receive a safe render
+  context and may supply a `matches` predicate.
+- **Cross-filtering**: add `crossFilter` to a chart or table. Clicking a chart
+  mark or selecting table rows filters connected widgets. Use `targets`,
+  `includeSelf`, `multi` and `field` to control the connection.
+- **Selection**: `chart.setSelectedIndex(index | null)` and
+  `dashboard.setSelection(id, indices)` select points or rows.
+  `getSelection(id)` returns the current selection.
+- **Events**: `dashboard.on("filterchange", listener)`,
+  `"selectionchange"`, `"widgetclick"` and `"statechange"` observe interaction.
+  `on` returns an unsubscribe function; `off` removes a listener explicitly.
+- **State**: `getState()` returns filters, selections, widget visibility and
+  serialized cross-filters. `setState(state)` restores a partial state.
+  `setFilter`, `clearFilter`, `clearFilters` and `setComponentVisible` update
+  state directly.
+- **Dynamic data**: `setWidgetData(id, data, columns?)` and
+  `updateWidget(id, patch)` replace data or configuration without rebuilding
+  the dashboard.
+
+```ts
+dashboard.on("filterchange", ({ id, value, filters }) => {
+  console.log(id, value, filters);
+});
+
+const saved = dashboard.getState();
+dashboard.setState(saved);
+```
 
 ## Standalone dashboard export
 
@@ -346,10 +437,10 @@ dashboard/
   file. Single-file output requires embedded data.
 - **Customisation**: `title`, `description`, `logo`, `theme`, `fontFamily`,
   `background`, `layout`, `header` and `footer` override the generated page.
-- **Limits**: custom dashboard components contain render functions and cannot
-  be serialized. Standalone export is Node-only; `export()` rejects in browsers
-  with an `EXPORT_FAILED` error. Built-in chart, table and metric interactions
-  keep working.
+- **Limits**: custom dashboard components and custom filters contain render
+  functions and cannot be serialized. Standalone export is Node-only; `export()`
+  rejects in browsers with an `EXPORT_FAILED` error. Built-in filters,
+  cross-filtering, chart/table interactions and dashboard state keep working.
 - **Deployment**: copy the directory to GitHub Pages, Vercel, Netlify or any
   static host. No server runtime is required.
 
@@ -607,6 +698,8 @@ Axes support `title`, `show`, `grid`, `rotate` (−90 to 90), `tickFormat`,
 - Hovering or focusing a mark highlights its category or series and dims the rest.
 - Legends toggle series visibility by click, Enter or Space.
 - `chart.setSeriesVisible(index, visible)` mirrors legend behaviour from code.
+- `chart.setSelectedIndex(index | null)` selects a point or category and
+  `chart.getSelectedIndex()` reads it back.
 - `onClick` receives `{ type, label, field, series, value, index, originalEvent }`.
 
 ```ts
@@ -780,9 +873,9 @@ confirms that no core build file imports React.
 
 ## Release history
 
-See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: `0.7.0`
-adds standalone dashboard export; advanced interactions, filtering and
-reporting arrive before `1.0.0`.
+See [CHANGELOG.md](./CHANGELOG.md). Numviz follows pre-1.0 releases: `0.8.0`
+adds interactive dashboards with filtering, cross-filtering, selection, events
+and serializable state; reporting and sharing arrive before `1.0.0`.
 
 ## License
 

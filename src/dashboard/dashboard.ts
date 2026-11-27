@@ -14,6 +14,8 @@ import {
   isDomNode,
   resolveContainer
 } from "../utils/dom.js";
+import { isPlainObject } from "../utils/validate.js";
+import { filterDataInput, collectFilterOptions, isFilterActive } from "./filters.js";
 import { resolveDashboard } from "./resolve.js";
 import {
   applyWidgetLayout,
@@ -24,6 +26,14 @@ import {
 import type {
   Dashboard,
   DashboardComponent,
+  DashboardCrossFilterConfig,
+  DashboardCrossFilterState,
+  DashboardEventMap,
+  DashboardEventType,
+  DashboardFilterValue,
+  DashboardState,
+  DashboardStateUpdate,
+  ResolvedDashboardFilter,
   DashboardComponentLayout,
   DashboardConfig,
   DashboardCustomComponent,
@@ -35,6 +45,12 @@ import type {
   ResolvedDashboardFooter,
   ResolvedDashboardHeader
 } from "./types.js";
+import type {
+  ChartClickEvent,
+  ColumnInput,
+  DataInput,
+  NormalizedValue
+} from "../types.js";
 
 type DashboardWindow = Window & typeof globalThis;
 
@@ -64,23 +80,31 @@ function widgetLabel(component: DashboardComponent): string {
 class NumvizDashboard implements Dashboard {
   #source: DashboardConfig;
   #config: ResolvedDashboardConfig;
-  #slots: WidgetSlot[];
+  #slots: WidgetSlot[] = [];
   #scope: string;
 
   #root: HTMLElement | null = null;
   #container: Element | null = null;
   #view: DashboardWindow | undefined;
   #header: HTMLElement | null = null;
+  #filterBar: HTMLElement | null = null;
   #grid: HTMLElement | null = null;
   #footer: HTMLElement | null = null;
   #style: HTMLStyleElement | null = null;
   #destroyed = false;
+  #filterValues = new Map<string, DashboardFilterValue>();
+  #crossFilters = new Map<string, ResolvedDashboardFilter>();
+  #selections = new Map<string, readonly number[]>();
+  #visible = new Map<string, boolean>();
+  #listeners = new Map<DashboardEventType, Set<(event: DashboardEventMap[DashboardEventType]) => void>>();
 
   constructor(config: DashboardConfig) {
     const resolved = resolveDashboard(config);
     this.#source = config;
     this.#config = resolved;
     this.#scope = `numviz-dashboard-${(dashboardCounter += 1)}`;
+    this.#syncFilterState(resolved);
+    this.#syncVisibility(resolved);
     const slots: WidgetSlot[] = [];
     try {
       for (const component of resolved.components) {
@@ -112,6 +136,277 @@ class NumvizDashboard implements Dashboard {
   getWidget(id: string): DashboardWidget | null {
     const slot = this.#slots.find((entry) => entry.id === id);
     return slot ? this.#publicWidget(slot) : null;
+  }
+
+  getFilter(id: string): DashboardFilterValue {
+    return this.#filterValues.get(id) ?? null;
+  }
+
+  setFilter(id: string, value: DashboardFilterValue): Dashboard {
+    this.#requireFilter(id);
+    return this.#setFilterValue(id, value, undefined, false);
+  }
+
+  clearFilter(id: string): Dashboard {
+    const filter = this.#requireFilter(id);
+    if (filter.source !== undefined) {
+      this.#crossFilters.delete(id);
+      this.#filterValues.delete(id);
+      this.#clearSourceSelection(filter.source);
+      this.#applyFilteredWidgets();
+      this.#syncChrome();
+      this.#emit("filterchange", {
+        type: "filterchange",
+        id,
+        value: null,
+        filters: this.#filterState(),
+        source: filter.source
+      });
+      this.#emitStateChange();
+      return this;
+    }
+    return this.#setFilterValue(id, null, undefined, false);
+  }
+
+  clearFilters(): Dashboard {
+    let changed = false;
+    for (const filter of this.#config.filters) {
+      if (isFilterActive(this.#filterValues.get(filter.id))) {
+        this.#filterValues.set(filter.id, null);
+        changed = true;
+      }
+    }
+    if (this.#crossFilters.size > 0) {
+      for (const filter of this.#crossFilters.values()) {
+        this.#filterValues.delete(filter.id);
+        if (filter.source) this.#clearSourceSelection(filter.source);
+      }
+      this.#crossFilters.clear();
+      changed = true;
+    }
+    if (changed) {
+      this.#applyFilteredWidgets();
+      this.#syncChrome();
+      this.#emit("filterchange", {
+        type: "filterchange",
+        id: "*",
+        value: null,
+        filters: this.#filterState()
+      });
+      this.#emitStateChange();
+    }
+    return this;
+  }
+
+  getSelection(id: string): readonly number[] {
+    return [...(this.#selections.get(id) ?? [])];
+  }
+
+  setSelection(id: string, indices: readonly number[], emit = true): Dashboard {
+    const slot = this.#requireWidget(id);
+    this.#applySelection(slot, indices);
+    if (emit) {
+      this.#emit("selectionchange", {
+        type: "selectionchange",
+        id,
+        indices: [...(this.#selections.get(id) ?? [])]
+      });
+      this.#emitStateChange();
+    }
+    return this;
+  }
+
+  setComponentVisible(id: string, visible: boolean): Dashboard {
+    if (typeof visible !== "boolean") {
+      throw new NumvizError("`visible` must be a boolean.", {
+        code: "INVALID_CONFIG",
+        path: "visible"
+      });
+    }
+    const slot = this.#requireWidget(id);
+    this.#visible.set(id, visible);
+    if (slot.element) slot.element.hidden = !visible;
+    this.#emitStateChange();
+    return this;
+  }
+
+  getState(): DashboardState {
+    return {
+      filters: this.#filterState(),
+      selections: Object.fromEntries(
+        [...this.#selections.entries()].map(([id, indices]) => [id, [...indices]])
+      ),
+      visibleComponents: Object.fromEntries(
+        this.#slots.map((slot) => [slot.id, this.#visible.get(slot.id) ?? true])
+      ),
+      crossFilters: Object.fromEntries(
+        [...this.#crossFilters.values()].map((filter) => [
+          filter.id,
+          {
+            id: filter.id,
+            source: filter.source as string,
+            field: filter.field as string,
+            value: this.#filterValues.get(filter.id) ?? null,
+            ...(filter.targets !== undefined ? { targets: filter.targets } : {}),
+            ...(filter.includeSelf !== undefined ? { includeSelf: filter.includeSelf } : {}),
+            ...(filter.multi !== undefined ? { multi: filter.multi } : {})
+          } satisfies DashboardCrossFilterState
+        ])
+      )
+    };
+  }
+
+  setState(state: DashboardStateUpdate): Dashboard {
+    if (!isPlainObject(state)) {
+      throw new NumvizError("`state` must be an object.", {
+        code: "INVALID_CONFIG",
+        path: "state"
+      });
+    }
+    if (state.crossFilters !== undefined) {
+      if (!isPlainObject(state.crossFilters)) {
+        throw new NumvizError("`state.crossFilters` must be an object.", {
+          code: "INVALID_CONFIG",
+          path: "state.crossFilters"
+        });
+      }
+      this.#crossFilters.clear();
+      for (const [id, entry] of Object.entries(state.crossFilters)) {
+        if (!isPlainObject(entry)) continue;
+        const cross = entry as unknown as DashboardCrossFilterState;
+        if (
+          typeof cross.source !== "string" ||
+          typeof cross.field !== "string" ||
+          !this.#slots.some((slot) => slot.id === cross.source)
+        ) {
+          continue;
+        }
+        this.#crossFilters.set(id, {
+          id,
+          type: cross.multi === true ? "multi-select" : "select",
+          field: cross.field,
+          label: cross.field,
+          defaultValue: null,
+          options: [],
+          multi: cross.multi === true,
+          source: cross.source,
+          includeSelf: cross.includeSelf === true,
+          ...(cross.targets !== undefined ? { targets: cross.targets } : {})
+        });
+        this.#filterValues.set(id, cross.value);
+      }
+    }
+    if (state.filters !== undefined) {
+      if (!isPlainObject(state.filters)) {
+        throw new NumvizError("`state.filters` must be an object.", {
+          code: "INVALID_CONFIG",
+          path: "state.filters"
+        });
+      }
+      for (const [id, value] of Object.entries(state.filters)) {
+        if (this.#findFilter(id)) this.#filterValues.set(id, value as DashboardFilterValue);
+      }
+    }
+    if (state.selections !== undefined) {
+      if (!isPlainObject(state.selections)) {
+        throw new NumvizError("`state.selections` must be an object.", {
+          code: "INVALID_CONFIG",
+          path: "state.selections"
+        });
+      }
+      for (const [id, indices] of Object.entries(state.selections)) {
+        const slot = this.#slots.find((entry) => entry.id === id);
+        if (slot && Array.isArray(indices)) this.#applySelection(slot, indices);
+      }
+    }
+    if (state.visibleComponents !== undefined) {
+      if (!isPlainObject(state.visibleComponents)) {
+        throw new NumvizError("`state.visibleComponents` must be an object.", {
+          code: "INVALID_CONFIG",
+          path: "state.visibleComponents"
+        });
+      }
+      for (const [id, visible] of Object.entries(state.visibleComponents)) {
+        if (typeof visible !== "boolean") continue;
+        const slot = this.#slots.find((entry) => entry.id === id);
+        if (!slot) continue;
+        this.#visible.set(id, visible);
+        if (slot.element) slot.element.hidden = !visible;
+      }
+    }
+    this.#applyFilteredWidgets();
+    this.#syncChrome();
+    this.#emitStateChange();
+    return this;
+  }
+
+  setWidgetData(id: string, data: DataInput, columns?: readonly ColumnInput[]): Dashboard {
+    const slot = this.#requireWidget(id);
+    if (slot.type !== "chart" && slot.type !== "table" && slot.type !== "metric") {
+      throw new NumvizError("Only chart, table and metric widgets accept data.", {
+        code: "INVALID_CONFIG",
+        path: `components.${id}.data`
+      });
+    }
+    const components = this.#source.components.map((component) =>
+      component.id === id
+        ? ({ ...component, data, ...(columns !== undefined ? { columns } : {}) } as DashboardComponent)
+        : component
+    );
+    return this.update({ ...this.#source, components });
+  }
+
+  updateWidget(id: string, patch: Partial<DashboardComponent>): Dashboard {
+    const slot = this.#requireWidget(id);
+    if (!isPlainObject(patch)) {
+      throw new NumvizError("`patch` must be an object.", {
+        code: "INVALID_CONFIG",
+        path: "patch"
+      });
+    }
+    if (patch.id !== undefined && patch.id !== id) {
+      throw new NumvizError("A widget patch cannot change the component id.", {
+        code: "INVALID_CONFIG",
+        path: "patch.id"
+      });
+    }
+    if (patch.type !== undefined && patch.type !== slot.type) {
+      throw new NumvizError("A widget patch cannot change the component type.", {
+        code: "INVALID_CONFIG",
+        path: "patch.type"
+      });
+    }
+    const components = this.#source.components.map((component) =>
+      component.id === id ? ({ ...component, ...patch } as DashboardComponent) : component
+    );
+    return this.update({ ...this.#source, components });
+  }
+
+  on<K extends DashboardEventType>(
+    type: K,
+    listener: (event: DashboardEventMap[K]) => void
+  ): () => void {
+    if (typeof listener !== "function") {
+      throw new NumvizError("Event listeners must be functions.", {
+        code: "INVALID_CONFIG",
+        path: "listener"
+      });
+    }
+    const listeners =
+      this.#listeners.get(type) ?? new Set<(event: DashboardEventMap[DashboardEventType]) => void>();
+    listeners.add(listener as (event: DashboardEventMap[DashboardEventType]) => void);
+    this.#listeners.set(type, listeners);
+    return () => this.off(type, listener);
+  }
+
+  off<K extends DashboardEventType>(
+    type: K,
+    listener: (event: DashboardEventMap[K]) => void
+  ): void {
+    const listeners = this.#listeners.get(type);
+    if (!listeners) return;
+    listeners.delete(listener as (event: DashboardEventMap[DashboardEventType]) => void);
+    if (listeners.size === 0) this.#listeners.delete(type);
   }
 
   async export(options: DashboardExportOptions): Promise<DashboardExportResult> {
@@ -150,6 +445,8 @@ class NumvizDashboard implements Dashboard {
       });
     }
     const resolved = resolveDashboard(config);
+    this.#syncFilterState(resolved);
+    this.#syncVisibility(resolved);
     this.#validateComponents(resolved);
     const previous = new Map(this.#slots.map((slot) => [slot.id, slot]));
     const slots: WidgetSlot[] = [];
@@ -176,6 +473,9 @@ class NumvizDashboard implements Dashboard {
       throw error;
     }
     for (const slot of previous.values()) this.#destroySlot(slot);
+    for (const id of [...this.#selections.keys()]) {
+      if (!slots.some((slot) => slot.id === id)) this.#selections.delete(id);
+    }
     this.#source = config;
     this.#config = resolved;
     this.#slots = slots;
@@ -202,6 +502,642 @@ class NumvizDashboard implements Dashboard {
     for (const slot of this.#slots) this.#destroySlot(slot);
     this.#container = null;
     this.#destroyed = true;
+  }
+
+  #requireWidget(id: string): WidgetSlot {
+    const slot = this.#slots.find((entry) => entry.id === id);
+    if (!slot) {
+      throw new NumvizError(`Unknown dashboard widget "${id}".`, {
+        code: "INVALID_CONFIG",
+        path: "components",
+        details: { id }
+      });
+    }
+    return slot;
+  }
+
+  #findFilter(id: string): ResolvedDashboardFilter | undefined {
+    return this.#config.filters.find((filter) => filter.id === id) ?? this.#crossFilters.get(id);
+  }
+
+  #requireFilter(id: string): ResolvedDashboardFilter {
+    const filter = this.#findFilter(id);
+    if (!filter) {
+      throw new NumvizError(`Unknown dashboard filter "${id}".`, {
+        code: "INVALID_CONFIG",
+        path: "filters",
+        details: { id }
+      });
+    }
+    return filter;
+  }
+
+  #syncFilterState(config: ResolvedDashboardConfig): void {
+    const ids = new Set(config.filters.map((filter) => filter.id));
+    for (const filter of config.filters) {
+      if (!this.#filterValues.has(filter.id)) {
+        this.#filterValues.set(filter.id, filter.defaultValue);
+      }
+    }
+    for (const id of [...this.#filterValues.keys()]) {
+      if (!ids.has(id) && !this.#crossFilters.has(id)) this.#filterValues.delete(id);
+    }
+    for (const [id, filter] of this.#crossFilters) {
+      if (!config.components.some((component) => component.id === filter.source)) {
+        this.#crossFilters.delete(id);
+        this.#filterValues.delete(id);
+      }
+    }
+  }
+
+  #syncVisibility(config: ResolvedDashboardConfig): void {
+    const ids = new Set(config.components.map((component) => component.id));
+    for (const component of config.components) {
+      if (!this.#visible.has(component.id)) {
+        this.#visible.set(component.id, component.visible !== false);
+      }
+    }
+    for (const id of [...this.#visible.keys()]) {
+      if (!ids.has(id)) this.#visible.delete(id);
+    }
+    for (const slot of this.#slots) {
+      if (slot.element) slot.element.hidden = !(this.#visible.get(slot.id) ?? true);
+    }
+  }
+
+  #filterState(): Readonly<Record<string, DashboardFilterValue>> {
+    const entries: Array<[string, DashboardFilterValue]> = [];
+    for (const filter of [...this.#config.filters, ...this.#crossFilters.values()]) {
+      entries.push([filter.id, this.#filterValues.get(filter.id) ?? null]);
+    }
+    return Object.fromEntries(entries);
+  }
+
+  #activeFilters(config: ResolvedDashboardConfig = this.#config): readonly ResolvedDashboardFilter[] {
+    return [...config.filters, ...this.#crossFilters.values()];
+  }
+
+  #columnInputs(columns: readonly unknown[] | undefined): readonly ColumnInput[] | undefined {
+    if (!columns) return undefined;
+    const inputs: ColumnInput[] = [];
+    for (const column of columns) {
+      if (typeof column === "string") {
+        inputs.push(column);
+        continue;
+      }
+      if (!isPlainObject(column)) continue;
+      const key =
+        typeof column.key === "string"
+          ? column.key
+          : typeof column.field === "string"
+            ? column.field
+            : undefined;
+      if (!key) continue;
+      inputs.push({
+        key,
+        ...(typeof column.label === "string" ? { label: column.label } : {}),
+        ...(typeof column.type === "string"
+          ? { type: column.type as "number" | "date" | "string" | "boolean" }
+          : {})
+      });
+    }
+    return inputs.length > 0 ? inputs : undefined;
+  }
+
+  #filteredData(
+    component: DashboardComponent,
+    data: DataInput,
+    columns: readonly ColumnInput[] | undefined,
+    config: ResolvedDashboardConfig
+  ): DataInput {
+    return filterDataInput(
+      data,
+      columns,
+      this.#activeFilters(config),
+      this.#filterValues,
+      component.id
+    );
+  }
+
+  #applyFilteredWidgets(): void {
+    for (const slot of this.#slots) {
+      if (!slot.instance) continue;
+      if (slot.type === "chart" || slot.type === "table" || slot.type === "metric") {
+        this.#updateSlot(slot, slot.component, this.#config);
+      }
+    }
+  }
+
+  #validateFilterValue(filter: ResolvedDashboardFilter, value: DashboardFilterValue): void {
+    if (value === null || value === undefined) return;
+    if (filter.type === "select" || filter.type === "multi-select") {
+      const valid =
+        Array.isArray(value)
+          ? value.every(
+              (entry) =>
+                typeof entry === "string" ||
+                typeof entry === "number" ||
+                typeof entry === "boolean"
+            )
+          : typeof value === "string" ||
+            typeof value === "number" ||
+            typeof value === "boolean";
+      if (!valid || (Array.isArray(value) && !filter.multi)) {
+        throw new NumvizError("This filter requires a primitive option value.", {
+          code: "INVALID_CONFIG",
+          path: `filters.${filter.id}`,
+          details: { received: value }
+        });
+      }
+      return;
+    }
+    if (filter.type === "search") {
+      if (typeof value !== "string") {
+        throw new NumvizError("Search filters require a string value.", {
+          code: "INVALID_CONFIG",
+          path: `filters.${filter.id}`,
+          details: { received: value }
+        });
+      }
+      return;
+    }
+    if (filter.type === "date-range" || filter.type === "number-range") {
+      if (!isPlainObject(value) || Array.isArray(value)) {
+        throw new NumvizError("Range filters require a `{ from, to }` object.", {
+          code: "INVALID_CONFIG",
+          path: `filters.${filter.id}`,
+          details: { received: value }
+        });
+      }
+      const range = value as { from?: unknown; to?: unknown };
+      const valid = (entry: unknown): boolean =>
+        entry === undefined ||
+        entry === null ||
+        (filter.type === "number-range"
+          ? typeof entry === "number" && Number.isFinite(entry)
+          : typeof entry === "string");
+      if (!valid(range.from) || !valid(range.to)) {
+        throw new NumvizError("Range filter values must contain valid `from` and `to` values.", {
+          code: "INVALID_CONFIG",
+          path: `filters.${filter.id}`,
+          details: { received: value }
+        });
+      }
+    }
+  }
+
+  #sameFilterValue(left: DashboardFilterValue | undefined, right: DashboardFilterValue): boolean {
+    try {
+      return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+    } catch {
+      return left === right;
+    }
+  }
+
+  #setFilterValue(
+    id: string,
+    value: DashboardFilterValue,
+    source: string | undefined,
+    fromUi: boolean
+  ): Dashboard {
+    const filter = this.#requireFilter(id);
+    this.#validateFilterValue(filter, value);
+    if (this.#sameFilterValue(this.#filterValues.get(id), value)) return this;
+    this.#filterValues.set(id, value);
+    this.#applyFilteredWidgets();
+    if (!fromUi) this.#syncChrome();
+    this.#emit("filterchange", {
+      type: "filterchange",
+      id,
+      value,
+      filters: this.#filterState(),
+      ...(source !== undefined ? { source } : {})
+    });
+    this.#emitStateChange();
+    return this;
+  }
+
+  #applySelection(slot: WidgetSlot, indices: readonly number[]): void {
+    if (!Array.isArray(indices)) {
+      throw new NumvizError("Selection must be an array of row indices.", {
+        code: "INVALID_CONFIG",
+        path: `components.${slot.id}.selection`
+      });
+    }
+    const next = indices.map((value, index) => {
+      if (!Number.isInteger(value) || value < 0) {
+        throw new NumvizError("Selection indices must be non-negative integers.", {
+          code: "INVALID_CONFIG",
+          path: `components.${slot.id}.selection[${index}]`,
+          details: { received: value }
+        });
+      }
+      return value;
+    });
+    if (slot.instance && slot.type === "table") {
+      (slot.instance as Table).setSelection(next, false);
+    }
+    if (slot.instance && slot.type === "chart") {
+      (slot.instance as Chart).setSelectedIndex(next.length > 0 ? (next[0] as number) : null);
+    }
+    this.#selections.set(slot.id, [...next]);
+  }
+
+  #clearSourceSelection(sourceId: string): void {
+    const slot = this.#slots.find((entry) => entry.id === sourceId);
+    if (slot?.instance && slot.type === "chart") {
+      (slot.instance as Chart).setSelectedIndex(null);
+    }
+    if (slot?.instance && slot.type === "table") {
+      (slot.instance as Table).setSelection([], false);
+    }
+    this.#selections.set(sourceId, []);
+  }
+
+  #toFilterValue(value: NormalizedValue | unknown): string | number | boolean | null {
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString();
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      return value;
+    }
+    if (value === null || value === undefined) return null;
+    return String(value);
+  }
+
+  #crossFilterId(sourceId: string): string {
+    return `crossfilter:${sourceId}`;
+  }
+
+  #applyCrossFilter(
+    sourceId: string,
+    field: string,
+    values: readonly (string | number | boolean)[],
+    config: DashboardCrossFilterConfig,
+    toggle = false
+  ): void {
+    const id = this.#crossFilterId(sourceId);
+    const existing = this.#crossFilters.get(id);
+    const multi = config.multi === true || values.length > 1;
+    const current = this.#filterValues.get(id);
+    let next = values;
+    if (
+      toggle &&
+      !multi &&
+      existing !== undefined &&
+      current !== null &&
+      current !== undefined &&
+      values.length === 1 &&
+      this.#sameFilterValue(current, values[0] as string | number | boolean)
+    ) {
+      next = [];
+    }
+    if (next.length === 0) {
+      this.#crossFilters.delete(id);
+      this.#filterValues.delete(id);
+      this.#clearSourceSelection(sourceId);
+      this.#applyFilteredWidgets();
+      this.#syncChrome();
+      this.#emit("filterchange", {
+        type: "filterchange",
+        id,
+        value: null,
+        filters: this.#filterState(),
+        source: sourceId
+      });
+      this.#emitStateChange();
+      return;
+    }
+    const filter: ResolvedDashboardFilter = {
+      id,
+      type: multi ? "multi-select" : "select",
+      field,
+      label: field,
+      defaultValue: null,
+      options: [],
+      multi,
+      source: sourceId,
+      includeSelf: config.includeSelf === true,
+      ...(config.targets !== undefined ? { targets: config.targets } : {})
+    };
+    this.#crossFilters.set(id, filter);
+    this.#filterValues.set(id, multi ? [...next] : (next[0] as string | number | boolean));
+    this.#applyFilteredWidgets();
+    this.#syncChrome();
+    this.#emit("filterchange", {
+      type: "filterchange",
+      id,
+      value: this.#filterValues.get(id) ?? null,
+      filters: this.#filterState(),
+      source: sourceId
+    });
+    this.#emitStateChange();
+  }
+
+  #handleChartClick(
+    slot: WidgetSlot,
+    component: DashboardComponent & { type: "chart" },
+    event: ChartClickEvent
+  ): void {
+    this.#emit("widgetclick", { type: "widgetclick", id: slot.id, event });
+    const cross = component.crossFilter;
+    if (!cross) return;
+    const chart = slot.instance as Chart | null;
+    const field = cross.field ?? component.x ?? component.category ?? "x";
+    const row = chart?.data.rows[event.index];
+    const value = this.#toFilterValue(row?.values[field] ?? event.label);
+    if (value === null) return;
+    const selected = this.#selections.get(slot.id) ?? [];
+    const isSelected = selected.length === 1 && selected[0] === event.index;
+    this.#selections.set(slot.id, isSelected ? [] : [event.index]);
+    chart?.setSelectedIndex(isSelected ? null : event.index);
+    this.#emit("selectionchange", {
+      type: "selectionchange",
+      id: slot.id,
+      indices: [...(this.#selections.get(slot.id) ?? [])],
+      source: slot.id
+    });
+    this.#applyCrossFilter(slot.id, field, [value], cross, true);
+  }
+
+  #handleTableSelection(
+    slot: WidgetSlot,
+    component: DashboardComponent & { type: "table" },
+    indices: readonly number[],
+    rows: readonly Readonly<Record<string, unknown>>[]
+  ): void {
+    this.#selections.set(slot.id, [...indices]);
+    this.#emit("selectionchange", {
+      type: "selectionchange",
+      id: slot.id,
+      indices: [...indices],
+      source: slot.id
+    });
+    const cross = component.crossFilter;
+    if (!cross) return;
+    const firstColumn = component.columns?.find(
+      (column) => typeof column === "string" || column.field !== undefined
+    );
+    const field = cross.field ?? (typeof firstColumn === "string" ? firstColumn : firstColumn?.field);
+    if (!field) return;
+    const values = rows
+      .map((row) => this.#toFilterValue(row[field]))
+      .filter((value): value is string | number | boolean => value !== null);
+    this.#applyCrossFilter(slot.id, field, values, cross);
+  }
+
+  #collectFilterOptions(
+    filter: ResolvedDashboardFilter
+  ): readonly { label: string; value: string | number | boolean }[] {
+    if (!filter.field) return [];
+    const datasets: Array<{ data: DataInput; columns?: readonly ColumnInput[] }> = [];
+    for (const slot of this.#slots) {
+      if (filter.targets !== undefined && !filter.targets.includes(slot.id)) continue;
+      if (slot.type !== "chart" && slot.type !== "table" && slot.type !== "metric") continue;
+      const component = slot.component as DashboardComponent & {
+        data: DataInput;
+        columns?: readonly ColumnInput[];
+      };
+      if (component.data !== undefined) {
+        datasets.push({ data: component.data, columns: component.columns });
+      }
+    }
+    return collectFilterOptions(datasets, filter.field);
+  }
+
+  #filterBarValue(filter: ResolvedDashboardFilter): DashboardFilterValue {
+    return this.#filterValues.get(filter.id) ?? null;
+  }
+
+  #formatFilterValue(value: DashboardFilterValue): string {
+    if (value === null) return "All";
+    if (Array.isArray(value)) return value.map(String).join(", ");
+    if (isPlainObject(value)) {
+      const range = value as { from?: unknown; to?: unknown };
+      const from =
+        range.from === undefined || range.from === null || range.from === ""
+          ? ""
+          : String(range.from);
+      const to =
+        range.to === undefined || range.to === null || range.to === ""
+          ? ""
+          : String(range.to);
+      return `${from || "Any"} – ${to || "Any"}`;
+    }
+    return String(value);
+  }
+
+  #appendFilterField(
+    bar: HTMLElement,
+    filter: ResolvedDashboardFilter,
+    control: Node | null
+  ): void {
+    const doc = bar.ownerDocument;
+    const wrapper = doc.createElement("div");
+    wrapper.className = [
+      "numviz-dashboard__filter",
+      ...(filter.className ? filter.className.split(/\s+/).filter(Boolean) : [])
+    ].join(" ");
+    wrapper.dataset.nvFilterId = filter.id;
+    const label = doc.createElement("label");
+    label.className = "numviz-dashboard__filter-label";
+    label.textContent = filter.label;
+    wrapper.appendChild(label);
+    if (control) {
+      if (isDomNode(control)) {
+        if ("setAttribute" in control) {
+          (control as Element).setAttribute("aria-label", filter.label);
+        }
+        wrapper.appendChild(control);
+      } else {
+        wrapper.appendChild(control);
+      }
+    }
+    bar.appendChild(wrapper);
+  }
+
+  #buildFilterControl(filter: ResolvedDashboardFilter): Node | null {
+    const doc = this.#root?.ownerDocument ?? getDocument();
+    const value = this.#filterBarValue(filter);
+    if (filter.type === "select" || filter.type === "multi-select") {
+      const options =
+        filter.options.length > 0 ? filter.options : this.#collectFilterOptions(filter);
+      const select = doc.createElement("select");
+      select.className = "numviz-dashboard__filter-control";
+      select.multiple = filter.multi;
+      if (!filter.multi) {
+        const all = doc.createElement("option");
+        all.value = "";
+        all.textContent = filter.placeholder ?? "All";
+        select.appendChild(all);
+      }
+      options.forEach((option, index) => {
+        const element = doc.createElement("option");
+        element.value = String(option.value);
+        element.textContent = option.label;
+        element.dataset.nvOption = String(index);
+        const selected = Array.isArray(value) ? value : value === null ? [] : [value];
+        if (selected.some((entry) => String(entry) === String(option.value))) {
+          element.selected = true;
+        }
+        select.appendChild(element);
+      });
+      if (!filter.multi && value !== null && !Array.isArray(value)) {
+        select.value = String(value);
+      }
+      select.addEventListener("change", () => {
+        if (filter.multi) {
+          const selected = [...select.selectedOptions]
+            .map((option) => {
+              const index = Number(option.dataset.nvOption);
+              return options[index]?.value;
+            })
+            .filter((entry): entry is string | number | boolean => entry !== undefined);
+          this.#setFilterValue(
+            filter.id,
+            selected.length > 0 ? selected : null,
+            undefined,
+            true
+          );
+        } else {
+          const option = select.selectedOptions[0];
+          const index = option?.dataset.nvOption;
+          const next = index === undefined ? null : (options[Number(index)]?.value ?? null);
+          this.#setFilterValue(filter.id, next, undefined, true);
+        }
+      });
+      return select;
+    }
+    if (filter.type === "search") {
+      const input = doc.createElement("input");
+      input.type = "search";
+      input.className = "numviz-dashboard__filter-control";
+      input.placeholder = filter.placeholder ?? `Search ${filter.label}`;
+      input.value = typeof value === "string" ? value : "";
+      input.addEventListener("input", () => {
+        this.#setFilterValue(filter.id, input.value, undefined, true);
+      });
+      return input;
+    }
+    if (filter.type === "date-range" || filter.type === "number-range") {
+      const group = doc.createElement("div");
+      group.className = "numviz-dashboard__filter-range";
+      const range = isPlainObject(value) ? (value as { from?: unknown; to?: unknown }) : {};
+      const make = (key: "from" | "to"): HTMLInputElement => {
+        const input = doc.createElement("input");
+        input.type = filter.type === "date-range" ? "date" : "number";
+        input.className = "numviz-dashboard__filter-control";
+        if (filter.type === "date-range") {
+          if (filter.min !== undefined) input.min = String(filter.min);
+          if (filter.max !== undefined) input.max = String(filter.max);
+        } else {
+          if (filter.min !== undefined) input.min = String(filter.min);
+          if (filter.max !== undefined) input.max = String(filter.max);
+          if (filter.step !== undefined) input.step = String(filter.step);
+        }
+        input.placeholder = key === "from" ? "From" : "To";
+        const raw = range[key];
+        input.value = raw === undefined || raw === null ? "" : String(raw);
+        input.addEventListener("change", () => {
+          const read = (entry: HTMLInputElement): string | number | null => {
+            if (entry.value === "") return null;
+            if (filter.type === "number-range") {
+              const parsed = Number(entry.value);
+              return Number.isFinite(parsed) ? parsed : null;
+            }
+            return entry.value;
+          };
+          const from = read(group.children[0] as HTMLInputElement);
+          const to = read(group.children[1] as HTMLInputElement);
+          this.#setFilterValue(
+            filter.id,
+            from === null && to === null ? null : { from, to },
+            undefined,
+            true
+          );
+        });
+        return input;
+      };
+      group.append(make("from"), make("to"));
+      return group;
+    }
+    if (filter.type === "custom" && filter.render) {
+      const result = filter.render({
+        id: filter.id,
+        document: doc,
+        dashboard: this,
+        filter: filter as never,
+        value,
+        setValue: (next: DashboardFilterValue) =>
+          this.#setFilterValue(filter.id, next, undefined, true)
+      });
+      if (result === null) return null;
+      if (typeof result === "string") {
+        const text = doc.createElement("span");
+        text.className = "numviz-dashboard__filter-control";
+        text.textContent = result;
+        return text;
+      }
+      if (!isDomNode(result)) {
+        throw new NumvizError("A custom filter must return a DOM node, a string or null.", {
+          code: "INVALID_CONFIG",
+          path: `filters.${filter.id}.render`
+        });
+      }
+      return result;
+    }
+    return null;
+  }
+
+  #buildFilterBar(doc: Document): HTMLElement | null {
+    const filters = [...this.#config.filters, ...this.#crossFilters.values()];
+    if (filters.length === 0) return null;
+    const bar = doc.createElement("div");
+    bar.className = "numviz-dashboard__filters";
+    bar.setAttribute("role", "group");
+    bar.setAttribute("aria-label", "Dashboard filters");
+    for (const filter of this.#config.filters) {
+      this.#appendFilterField(bar, filter, this.#buildFilterControl(filter));
+    }
+    for (const filter of this.#crossFilters.values()) {
+      const chip = doc.createElement("span");
+      chip.className = "numviz-dashboard__filter-chip";
+      chip.dataset.nvFilterId = filter.id;
+      const label = doc.createElement("span");
+      label.textContent = `${filter.label}: ${this.#formatFilterValue(
+        this.#filterBarValue(filter)
+      )}`;
+      const clear = doc.createElement("button");
+      clear.type = "button";
+      clear.className = "numviz-dashboard__filter-chip-clear";
+      clear.setAttribute("aria-label", `Clear ${filter.label} filter`);
+      clear.textContent = "×";
+      clear.addEventListener("click", () => this.clearFilter(filter.id));
+      chip.append(label, clear);
+      bar.appendChild(chip);
+    }
+    const hasActive =
+      this.#config.filters.some((filter) => isFilterActive(this.#filterValues.get(filter.id))) ||
+      this.#crossFilters.size > 0;
+    if (hasActive) {
+      const clear = doc.createElement("button");
+      clear.type = "button";
+      clear.className = "numviz-dashboard__filter-clear";
+      clear.textContent = "Clear filters";
+      clear.addEventListener("click", () => this.clearFilters());
+      bar.appendChild(clear);
+    }
+    return bar;
+  }
+
+  #emit<K extends DashboardEventType>(type: K, event: DashboardEventMap[K]): void {
+    const listeners = this.#listeners.get(type);
+    if (!listeners) return;
+    for (const listener of [...listeners]) {
+      listener(event as DashboardEventMap[DashboardEventType]);
+    }
+  }
+
+  #emitStateChange(): void {
+    this.#emit("statechange", { type: "statechange", state: this.getState() });
   }
 
   #publicWidget(slot: WidgetSlot): DashboardWidget {
@@ -268,13 +1204,32 @@ class NumvizDashboard implements Dashboard {
   ): ChartConfig {
     const componentConfig: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(component)) {
-      if (key === "id" || key === "type" || key === "chartType" || key === "layout" || key === "style") {
+      if (
+        key === "id" ||
+        key === "type" ||
+        key === "chartType" ||
+        key === "layout" ||
+        key === "style" ||
+        key === "visible" ||
+        key === "crossFilter"
+      ) {
         continue;
       }
       if (value !== undefined) componentConfig[key] = value;
     }
+    componentConfig.data = this.#filteredData(
+      component,
+      component.data,
+      this.#columnInputs(component.columns),
+      config
+    );
     const theme = this.#mergedTheme(component.theme, config);
     if (theme) componentConfig.theme = theme;
+    const userOnClick = componentConfig.onClick as ChartConfig["onClick"];
+    componentConfig.onClick = (event: ChartClickEvent) => {
+      userOnClick?.(event);
+      this.#handleChartClick(this.#requireWidget(component.id), component, event);
+    };
     return {
       ...(componentConfig as unknown as Omit<ChartConfig, "type">),
       type: component.chartType
@@ -287,8 +1242,34 @@ class NumvizDashboard implements Dashboard {
   ): TableConfig {
     const componentConfig: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(component)) {
-      if (key === "id" || key === "type" || key === "layout" || key === "style") continue;
+      if (
+        key === "id" ||
+        key === "type" ||
+        key === "layout" ||
+        key === "style" ||
+        key === "visible" ||
+        key === "crossFilter"
+      ) {
+        continue;
+      }
       if (value !== undefined) componentConfig[key] = value;
+    }
+    componentConfig.data = this.#filteredData(
+      component,
+      component.data,
+      this.#columnInputs(component.columns),
+      config
+    );
+    const userSelection = componentConfig.onSelectionChange as TableConfig["onSelectionChange"];
+    componentConfig.onSelectionChange = (
+      indices: readonly number[],
+      rows: readonly Readonly<Record<string, unknown>>[]
+    ) => {
+      userSelection?.(indices, rows);
+      this.#handleTableSelection(this.#requireWidget(component.id), component, indices, rows);
+    };
+    if (component.crossFilter && componentConfig.selectable === undefined) {
+      componentConfig.selectable = true;
     }
     const theme = this.#mergedTheme(component.theme, config);
     if (theme) componentConfig.theme = theme;
@@ -317,9 +1298,24 @@ class NumvizDashboard implements Dashboard {
   ): MetricConfig {
     const componentConfig: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(component)) {
-      if (key === "id" || key === "type" || key === "layout" || key === "style") continue;
+      if (
+        key === "id" ||
+        key === "type" ||
+        key === "layout" ||
+        key === "style" ||
+        key === "visible" ||
+        key === "crossFilter"
+      ) {
+        continue;
+      }
       if (value !== undefined) componentConfig[key] = value;
     }
+    componentConfig.data = this.#filteredData(
+      component,
+      component.data,
+      this.#columnInputs(component.columns),
+      config
+    );
     componentConfig.name = component.name ?? component.title ?? component.id;
     const theme = this.#mergedTheme(component.theme, config);
     if (theme) componentConfig.theme = theme;
@@ -412,9 +1408,12 @@ class NumvizDashboard implements Dashboard {
     if (!root || !grid) return;
     const doc = root.ownerDocument;
     this.#header?.remove();
+    this.#filterBar?.remove();
     this.#footer?.remove();
     this.#header = this.#buildHeader(doc, this.#config.header);
     if (this.#header) root.insertBefore(this.#header, grid);
+    this.#filterBar = this.#buildFilterBar(doc);
+    if (this.#filterBar) root.insertBefore(this.#filterBar, grid);
     this.#footer = this.#buildFooter(doc, this.#config.footer);
     if (this.#footer) root.appendChild(this.#footer);
   }
@@ -471,6 +1470,7 @@ class NumvizDashboard implements Dashboard {
         slot.element = this.#buildWidgetElement(doc, slot);
         slot.body = slot.element.querySelector<HTMLElement>(".numviz-dashboard__body");
         slot.element.dataset.nvSlot = String(index);
+        slot.element.hidden = !(this.#visible.get(slot.id) ?? true);
         grid.appendChild(slot.element);
         this.#mountSlot(slot, doc);
       } else {
@@ -671,6 +1671,8 @@ class NumvizDashboard implements Dashboard {
     this.#root = null;
     this.#header?.remove();
     this.#header = null;
+    this.#filterBar?.remove();
+    this.#filterBar = null;
     this.#grid = null;
     this.#footer = null;
     this.#style?.remove();

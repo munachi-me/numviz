@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numviz — Interactive dashboard</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main class="wide">
+      <a class="back" href="index.html">← All examples</a>
+      <div id="dashboard"></div>
+      <p class="note">
+        Filter controls apply to every connected widget. Click a bar or select
+        table rows to cross-filter the rest of the dashboard. Active
+        cross-filters appear as removable chips.
+      </p>
+    </main>
+    <script type="module">
+      import { createDashboard } from "../dist/index.js";
+
+      const rows = [
+        { region: "North", account: "Acme", date: "2026-01-08", revenue: 42000, orders: 84 },
+        { region: "North", account: "Borealis", date: "2026-01-22", revenue: 36500, orders: 71 },
+        { region: "South", account: "Cobalt", date: "2026-02-03", revenue: 51800, orders: 96 },
+        { region: "South", account: "Delta", date: "2026-02-17", revenue: 28400, orders: 58 },
+        { region: "East", account: "Evergreen", date: "2026-03-02", revenue: 47700, orders: 88 },
+        { region: "East", account: "Foundry", date: "2026-03-19", revenue: 33100, orders: 64 },
+        { region: "West", account: "Granite", date: "2026-03-27", revenue: 41200, orders: 79 }
+      ];
+
+      const dashboard = createDashboard({
+        title: "Sales performance",
+        description: "Filter by region, account or revenue, then click a bar to cross-filter.",
+        format: { locale: "en-US", currency: "USD" },
+        theme: {
+          accent: "#4F46E5",
+          chartPalette: ["#4F46E5", "#06B6D4", "#10B981", "#F59E0B"]
+        },
+        filters: [
+          {
+            id: "region",
+            type: "select",
+            field: "region",
+            label: "Region",
+            placeholder: "All regions"
+          },
+          {
+            id: "account",
+            type: "search",
+            field: "account",
+            label: "Account"
+          },
+          {
+            id: "revenue",
+            type: "number-range",
+            field: "revenue",
+            label: "Revenue"
+          }
+        ],
+        layout: {
+          columns: { base: 1, sm: 2, lg: 4 },
+          gap: 16,
+          padding: 0
+        },
+        components: [
+          {
+            id: "total",
+            type: "metric",
+            name: "Total revenue",
+            data: rows,
+            column: "revenue",
+            aggregation: "sum",
+            format: "currency",
+            description: "Current filter selection",
+            icon: "$",
+            layout: { columnSpan: 2 }
+          },
+          {
+            id: "orders",
+            type: "metric",
+            name: "Orders",
+            data: rows,
+            column: "orders",
+            aggregation: "sum",
+            format: "compact",
+            description: "Current filter selection",
+            icon: "◫",
+            layout: { columnSpan: 2 }
+          },
+          {
+            id: "revenue-chart",
+            type: "chart",
+            chartType: "bar",
+            title: "Revenue by account",
+            data: rows,
+            x: "account",
+            y: "revenue",
+            crossFilter: { field: "account" },
+            layout: { columnSpan: 2, minHeight: 320 }
+          },
+          {
+            id: "records",
+            type: "table",
+            title: "Accounts",
+            data: rows,
+            columns: [
+              { field: "region", label: "Region" },
+              { field: "account", label: "Account" },
+              { field: "revenue", label: "Revenue", format: "currency" },
+              { field: "orders", label: "Orders", format: "number" }
+            ],
+            searchable: true,
+            pagination: false,
+            striped: true,
+            variant: "compact",
+            crossFilter: { field: "account" },
+            layout: { columnSpan: 2 }
+          }
+        ]
+      });
+
+      dashboard.render("#dashboard");
+      window.dashboard = dashboard;
+    </script>
+  </body>
+</html>

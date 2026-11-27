@@ -245,6 +245,8 @@ export interface ChartConfig {
   /** Follow the container width. Defaults to true when `width` is omitted. */
   responsive?: boolean;
   animation?: boolean | AnimationConfig;
+  /** Initially selected point or category index. */
+  selectedIndex?: number | null;
   onClick?: (event: ChartClickEvent) => void;
 }
 
@@ -313,6 +315,10 @@ export interface Chart {
   readonly isDestroyed: boolean;
   /** Shows or hides a series by index, mirroring a legend interaction. */
   setSeriesVisible(index: number, visible: boolean): Chart;
+  /** Select one point or category, or clear the selection with `null`. */
+  setSelectedIndex(index: number | null): Chart;
+  /** Current selected point or category index. */
+  getSelectedIndex(): number | null;
   /** Replace the chart configuration and redraw when rendered. */
   update(config: ChartConfig): Chart;
   /** Render the chart into a selector or DOM element. */

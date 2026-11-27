@@ -95,6 +95,11 @@ const BASE_CSS = `
 .numviz-chart__mark:focus-visible { filter: brightness(1.08); }
 .numviz-chart__mark:focus-visible { outline: 2px solid var(--nv-accent); outline-offset: 2px; }
 .numviz-chart__mark--dimmed { opacity: 0.35; }
+.numviz-chart__mark--selected {
+  stroke: var(--nv-accent);
+  stroke-width: 2.5;
+  filter: saturate(1.12);
+}
 .numviz-chart__empty {
   display: flex;
   align-items: center;
