@@ -322,6 +322,8 @@ export interface Chart {
   setSelectedIndex(index: number | null): Chart;
   /** Current selected point or category index. */
   getSelectedIndex(): number | null;
+  /** Human-readable summary of the chart for assistive technology. */
+  getSummary(): string;
   /** Serialize the rendered chart to a standalone SVG string. */
   toSVG(options?: ChartExportOptions): string;
   /** Rasterize the rendered chart to PNG in a browser. */

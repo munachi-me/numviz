@@ -2,6 +2,65 @@
 
 All notable changes to Numviz are documented in this file.
 
+## [1.0.0] - 2026-11-27
+
+### Added
+
+- `Chart.getSummary()` for a plain-text chart description suitable for
+  assistive technology, tests, exports and custom UI.
+- Data-aware chart SVG descriptions with the chart type, fields, point count and
+  series labels.
+
+### Changed
+
+- PNG chart export resolves `Image`, `Blob` and `URL` from the chart document,
+  so charts inside iframes and other documents export correctly.
+- Standalone SVG export uses the configured chart background when the root has
+  no `--nv-background` token.
+- The npm package includes the `docs` directory alongside `dist`, `README.md`,
+  `LICENSE` and `CHANGELOG.md`.
+
+### Accessibility
+
+- Documented chart, table, dashboard and report accessibility behaviour in
+  `docs/accessibility.md`.
+- Added tests for chart names and descriptions, selected-point announcements,
+  table semantics and large datasets.
+- Added tests for charts with more than a thousand marks and for exporting
+  thousands of table rows.
+
+### Documentation
+
+- Added `docs/migration.md` with upgrade notes from `0.6.0` through `1.0.0`.
+- Added `docs/troubleshooting.md` for rendering, export, printing, SSR, large
+  data and accessibility issues.
+- Added a documentation index to the README.
+- Completed the public API reference for chart, table, dashboard, report and
+  print APIs.
+
+### Package quality
+
+- Verified the production build, standalone runtime, declarations, optional
+  React peer dependency and packed consumer fixture.
+- Verified the npm tarball contains the intended runtime, declarations, README,
+  changelog, licence and documentation.
+
+### Verified
+
+- 239 tests pass across 24 files.
+- `npm run verify` covers type checking, ESLint, tests, production builds, the
+  standalone runtime and a packed consumer fixture.
+- The report example and the new accessibility behaviour render in a browser.
+
+### Compatibility
+
+- No breaking changes to chart, table, metric, dashboard, report or React APIs.
+- `Chart.getSummary()` is additive. Existing chart descriptions become more
+  specific but keep the same `role`, `aria-label`, `<title>` and `<desc>`
+  structure.
+- npm publishing is prepared as `@munachi-me/numviz`; the release tarball is
+  attached to the GitHub release.
+
 ## [0.9.0] - 2026-11-26
 
 ### Added

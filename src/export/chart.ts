@@ -90,10 +90,8 @@ export function chartToSVG(chart: Chart, options: ChartExportOptions = {}): stri
   const style = doc.createElementNS(SVG_NS, "style");
   style.textContent = BASE_CSS;
   clone.insertBefore(style, clone.firstChild);
-  const background =
-    options.background ??
-    clone.style.getPropertyValue("--nv-background") ??
-    chart.config.background;
+  const tokenBackground = clone.style.getPropertyValue("--nv-background") || undefined;
+  const background = options.background ?? tokenBackground ?? chart.config.background;
   if (background) {
     const rect = doc.createElementNS(SVG_NS, "rect");
     rect.setAttribute("x", "0");
@@ -127,7 +125,13 @@ export async function chartToPNG(
   const ImageCtor = (view as (Window & { Image?: typeof Image }) | null)?.Image ??
     (globalThis as typeof globalThis & { Image?: typeof Image }).Image;
   const URLImpl = (view as (Window & { URL?: typeof URL }) | null)?.URL ?? globalThis.URL;
-  if (!doc || typeof ImageCtor !== "function" || typeof URLImpl?.createObjectURL !== "function") {
+  const BlobCtor = (view as (Window & { Blob?: typeof Blob }) | null)?.Blob ?? globalThis.Blob;
+  if (
+    !doc ||
+    typeof ImageCtor !== "function" ||
+    typeof BlobCtor !== "function" ||
+    typeof URLImpl?.createObjectURL !== "function"
+  ) {
     throw new NumvizError("PNG chart export requires a browser image and canvas runtime.", {
       code: "EXPORT_FAILED"
     });
@@ -151,7 +155,7 @@ export async function chartToPNG(
   );
   canvas.width = dimensions.width;
   canvas.height = dimensions.height;
-  const url = URLImpl.createObjectURL(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
+  const url = URLImpl.createObjectURL(new BlobCtor([svg], { type: "image/svg+xml;charset=utf-8" }));
   try {
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {
       const element = new ImageCtor();
@@ -173,6 +177,6 @@ export async function chartToPNG(
       cause: error
     });
   } finally {
-    URLImpl.revokeObjectURL(url);
+    URLImpl.revokeObjectURL?.(url);
   }
 }
