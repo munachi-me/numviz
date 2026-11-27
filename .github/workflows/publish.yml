@@ -35,6 +35,7 @@ jobs:
       PACKAGE_NAME: "@munachi-me/numviz"
       NPM_REGISTRY: "https://registry.npmjs.org"
       GITHUB_REGISTRY: "https://npm.pkg.github.com"
+      GITHUB_NPMRC: ${{ github.workspace }}/.github-packages.npmrc
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -79,8 +80,11 @@ jobs:
       - name: Configure GitHub Packages authentication
         run: |
           set -euo pipefail
-          npm config set "@munachi-me:registry" "https://npm.pkg.github.com"
-          npm config set "//npm.pkg.github.com/:_authToken" "$GITHUB_TOKEN"
+          {
+            echo "@munachi-me:registry=$GITHUB_REGISTRY"
+            echo "//npm.pkg.github.com/:_authToken=$GITHUB_TOKEN"
+          } > "$GITHUB_NPMRC"
+          chmod 600 "$GITHUB_NPMRC"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Check published versions
@@ -93,7 +97,7 @@ jobs:
           if npm view "$PACKAGE_NAME@$version" version --registry="$NPM_REGISTRY" >/dev/null 2>&1; then
             npm_found=true
           fi
-          if npm view "$PACKAGE_NAME@$version" version --registry="$GITHUB_REGISTRY" >/dev/null 2>&1; then
+          if NPM_CONFIG_USERCONFIG="$GITHUB_NPMRC" npm view "$PACKAGE_NAME@$version" version --registry="$GITHUB_REGISTRY" >/dev/null 2>&1; then
             github_found=true
           fi
           echo "npm=$npm_found" >> "$GITHUB_OUTPUT"
@@ -106,17 +110,22 @@ jobs:
             echo "- GitHub Packages: \`$github_found\`"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Reject duplicate publication
-        if: steps.plan.outputs.mode != 'dry-run' && (steps.published.outputs.npm == 'true' || steps.published.outputs.github == 'true')
+        if: steps.plan.outputs.mode != 'dry-run' && steps.published.outputs.npm == 'true' && steps.published.outputs.github == 'true'
         run: |
-          echo "::error::Version ${{ steps.plan.outputs.version }} already exists in npm or GitHub Packages. Bump package.json before publishing."
+          echo "::error::Version ${{ steps.plan.outputs.version }} already exists in both npm and GitHub Packages. Bump package.json before publishing."
           exit 1
       - name: Verify npm package (dry run)
         if: steps.plan.outputs.mode == 'dry-run'
-        run: npm publish --access public --dry-run
+        run: |
+          set -euo pipefail
+          npm whoami --registry="$NPM_REGISTRY"
+          npm publish --registry="$NPM_REGISTRY" --access public --dry-run
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Verify GitHub Packages package (dry run)
         if: steps.plan.outputs.mode == 'dry-run'
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ env.GITHUB_NPMRC }}
         run: |
           set -euo pipefail
           npm whoami --registry="$GITHUB_REGISTRY"
@@ -131,15 +140,16 @@ jobs:
             echo "No package was published. This run only verified packaging and authentication."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Publish to npm
-        if: steps.plan.outputs.mode != 'dry-run'
-        run: npm publish --access public --tag "$DIST_TAG" --provenance
+        if: steps.plan.outputs.mode != 'dry-run' && steps.published.outputs.npm != 'true'
+        run: npm publish --registry="$NPM_REGISTRY" --access public --tag "$DIST_TAG" --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           DIST_TAG: ${{ steps.plan.outputs.tag }}
       - name: Publish to GitHub Packages
-        if: steps.plan.outputs.mode != 'dry-run'
+        if: steps.plan.outputs.mode != 'dry-run' && steps.published.outputs.github != 'true'
         run: npm publish --registry="$GITHUB_REGISTRY" --access public --tag "$DIST_TAG"
         env:
+          NPM_CONFIG_USERCONFIG: ${{ env.GITHUB_NPMRC }}
           DIST_TAG: ${{ steps.plan.outputs.tag }}
       - name: Verify npm publication
         if: steps.plan.outputs.mode != 'dry-run'
@@ -164,6 +174,7 @@ jobs:
       - name: Verify GitHub Packages publication
         if: steps.plan.outputs.mode != 'dry-run'
         env:
+          NPM_CONFIG_USERCONFIG: ${{ env.GITHUB_NPMRC }}
           VERSION: ${{ steps.plan.outputs.version }}
           DIST_TAG: ${{ steps.plan.outputs.tag }}
         run: |
@@ -187,7 +198,7 @@ jobs:
             echo
             echo "### Publication complete"
             echo
-            echo "- Published \`$PACKAGE_NAME@${{ steps.plan.outputs.version }}\` to npm and GitHub Packages."
+            echo "- Verified \`$PACKAGE_NAME@${{ steps.plan.outputs.version }}\` in npm and GitHub Packages."
             echo "- Dist-tag: \`${{ steps.plan.outputs.tag }}\`"
             echo "- Both registries were verified after publication."
           } >> "$GITHUB_STEP_SUMMARY"
