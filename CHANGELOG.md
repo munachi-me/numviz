@@ -2,6 +2,50 @@
 
 All notable changes to Numviz are documented in this file.
 
+## [1.0.1] - 2026-11-27
+
+### Fixed
+
+- CSV exports now protect against spreadsheet formula injection. Cells whose
+  first significant character is `=`, `+`, `-`, `@`, a tab, a carriage return or
+  a line feed are prefixed with `'`. Leading whitespace and control or format
+  characters are ignored when detecting the prefix.
+- Genuine negative numeric values keep their numeric presentation, including
+  formatted currency and percent values.
+- Custom formatters cannot bypass formula protection when they return
+  formula-like text, even for negative raw values.
+- Existing CSV quoting for delimiters, quotes and newlines is preserved.
+  JSON and HTML exports are unchanged.
+
+### Improved
+
+- The publish workflow now distinguishes dry runs from real publications,
+  records the selected mode, version and dist-tag in the job summary, checks both
+  registries before publishing, refuses to overwrite an existing version,
+  verifies the published version and dist-tag after publication, and fails when
+  either registry does not confirm the release.
+- Manual workflow runs can publish explicitly to `latest` or `next`; dry runs
+  remain the default and never publish.
+- npm publication continues to use provenance. GitHub Packages publication uses
+  the workflow `GITHUB_TOKEN` with `packages: write`.
+
+### Verified
+
+- 258 tests pass across 25 files.
+- `npm run verify` covers type checking, ESLint, the full test suite, production
+  builds, the standalone runtime and a packed consumer fixture.
+- npm registry inspection confirms `@munachi-me/numviz@1.0.0` exists, is public,
+  exposes the intended exports and React subpath, has no runtime dependencies,
+  and its tarball matches the `v1.0.0` package metadata.
+
+### Compatibility
+
+- No breaking changes to chart, table, metric, dashboard, report or React APIs.
+- `TableCSVExportOptions` adds `formulaProtection`, defaulting to `true`.
+  Set it to `false` only for trusted, non-spreadsheet consumers.
+- `1.0.1` is prepared for release; publication status is confirmed only after a
+  registry check.
+
 ## [1.0.0] - 2026-11-27
 
 ### Added

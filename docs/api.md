@@ -1,4 +1,4 @@
-# Numviz API reference — 1.0.0
+# Numviz API reference — 1.0.1
 
 ## Entry points
 
@@ -227,10 +227,20 @@ Return a DOM node from `render` to add markup.
 
 Table exports use displayed column labels and formatted values by default.
 `TableExportOptions` provides `scope` (`"all"` or `"page"`) and `includeHidden`.
-CSV options add `delimiter`, `includeHeaders`, `bom` and `lineEnding`. JSON
-options add `format` (`"objects"` or `"matrix"`), `useLabels`, `raw`,
-`includeHeaders` and `pretty`. HTML options add `includeHeaders` and
-`includeTitle`. HTML output escapes captions, headers and cell values.
+CSV options add `delimiter`, `includeHeaders`, `bom`, `lineEnding` and
+`formulaProtection`. JSON options add `format` (`"objects"` or `"matrix"`),
+`useLabels`, `raw`, `includeHeaders` and `pretty`. HTML options add
+`includeHeaders` and `includeTitle`. HTML output escapes captions, headers and
+cell values.
+
+CSV exports protect against spreadsheet formula injection by default. A cell
+whose first significant character is `=`, `+`, `-`, `@`, a tab, a carriage return
+or a line feed is prefixed with `'`. Leading whitespace and control or format
+characters are ignored when detecting the prefix. Genuine negative numbers keep
+their numeric presentation. Headers are exported as configured and are not
+rewritten. Set `formulaProtection: false` only for trusted, non-spreadsheet
+consumers. The apostrophe is part of the CSV payload, so parsers that do not
+implement spreadsheet text markers will see it.
 
 Only the current page is rendered when `pagination` is enabled; with pagination
 disabled every filtered and sorted row is rendered and `getState().pageCount`

@@ -3,6 +3,14 @@
 Numviz follows semantic versioning from `1.0.0`. This guide records the
 changes that matter when upgrading between releases.
 
+## 1.0.0 to 1.0.1
+
+`1.0.1` is a maintenance release with no public API changes. CSV exports now
+protect against spreadsheet formula injection by default. If a downstream tool
+must receive formula-like text without the protective apostrophe, pass
+`formulaProtection: false` to `table.toCSV()`. This is only appropriate for
+trusted, non-spreadsheet consumers.
+
 ## 0.9.0 to 1.0.0
 
 `1.0.0` is a production release with no breaking changes to the chart, table,

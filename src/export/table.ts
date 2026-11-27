@@ -26,6 +26,32 @@ export function escapeCsvCell(value: string, delimiter: string): string {
   return value;
 }
 
+const DANGEROUS_CSV_PREFIX = /^[=+\-@\t\r\n]/u;
+const LEADING_INVISIBLE = /^[\s\p{Cc}\p{Cf}\uFEFF]*/u;
+const NEGATIVE_FORMATTED_NUMBER =
+  /^-\s*(?:[A-Z]{3}\s+)?[\s$€£¥₹₩₽₺₴₦₱₫฿()]*\d[\d\s.,]*(?:[eE][+-]?\d+)?(?:\s*%|\s*[\s$€£¥₹₩₽₺₴₦₱₫฿()]*)?$/u;
+const NEGATIVE_RAW_NUMBER = /^-\s*(?:\d[\d\s.,]*|\.\d[\d\s.,]*)(?:[eE][+-]?\d+)?$/u;
+
+function isNegativeNumericValue(value: unknown, formatted: string): boolean {
+  if (!NEGATIVE_FORMATTED_NUMBER.test(formatted)) return false;
+  if (typeof value === "number") return Number.isFinite(value) && value <= 0;
+  if (typeof value === "bigint") return value < 0n;
+  return typeof value === "string" && NEGATIVE_RAW_NUMBER.test(value.trim());
+}
+
+/**
+ * Prefix spreadsheet formula starters with an apostrophe. Leading whitespace,
+ * control and format characters are ignored when detecting the prefix, but
+ * genuine negative numeric values keep their numeric presentation.
+ */
+export function protectCsvCell(value: string, rawValue: unknown): string {
+  if (value === "") return value;
+  const stripped = value.replace(LEADING_INVISIBLE, "");
+  if (!DANGEROUS_CSV_PREFIX.test(value) && !DANGEROUS_CSV_PREFIX.test(stripped)) return value;
+  if (isNegativeNumericValue(rawValue, value)) return value;
+  return `'${value}`;
+}
+
 export function tableCsv(
   rows: readonly TableRow[],
   columns: readonly ResolvedTableColumn[],
@@ -41,12 +67,13 @@ export function tableCsv(
   for (const row of rows) {
     lines.push(
       columns
-        .map((column) =>
-          escapeCsvCell(
-            format(column.value ? column.value(row) : row[column.field], row, column),
-            delimiter
-          )
-        )
+        .map((column) => {
+          const rawValue = column.value ? column.value(row) : row[column.field];
+          const formatted = format(rawValue, row, column);
+          const value =
+            options.formulaProtection === false ? formatted : protectCsvCell(formatted, rawValue);
+          return escapeCsvCell(value, delimiter);
+        })
         .join(delimiter)
     );
   }

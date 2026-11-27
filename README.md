@@ -5,7 +5,7 @@ renders charts, HTML data tables and KPI metric cards from ordinary JavaScript
 data — no React, Next.js, Numiq, or CSS framework required. React is optional and
 available from a separate subpath.
 
-**Current release:** `1.0.0` — stable charts, tables, metrics, dashboards,
+**Current release:** `1.0.1` — stable charts, tables, metrics, dashboards,
 reports, export, printing and React integration for production use.
 
 Published on npm and GitHub Packages as **`@munachi-me/numviz`**.
@@ -497,6 +497,12 @@ const html = table.toHTML({ includeTitle: true });
   hidden columns.
 - **Table formatting**: CSV and JSON use displayed labels and cell formatting by
   default. Use `raw: true` for unformatted JSON values.
+- **CSV security**: formula starters (`=`, `+`, `-`, `@`, tab, carriage return and
+  line feed) are prefixed with `'` by default, including after leading
+  whitespace or control characters. Genuine negative numbers keep their numeric
+  presentation. Set `formulaProtection: false` only for trusted,
+  non-spreadsheet consumers; the apostrophe is part of the CSV payload and may
+  be visible to parsers that do not implement spreadsheet text markers.
 
 Reports wrap dashboards with reusable layouts and print defaults:
 
@@ -959,15 +965,26 @@ confirms that no core build file imports React.
 Publishing is automated by `.github/workflows/publish.yml`. Publishing a GitHub
 release runs the full verification suite, then publishes to both npm and GitHub
 Packages. Stable releases use the `latest` tag and prereleases use `next`; npm
-publishes also carry provenance. The workflow needs the repository secret
-`NPM_TOKEN`; manual runs default to a safe dry run.
+publishes also carry provenance. Manual runs default to a safe dry run and can
+publish to `latest` or `next` explicitly.
+
+The workflow uses `NPM_TOKEN` for npm because trusted publishing is not
+configured for this package. npm provenance still uses GitHub OIDC through
+`id-token: write`. GitHub Packages uses the workflow `GITHUB_TOKEN` with
+`packages: write`. To migrate to npm trusted publishing, configure the package's
+trusted publisher for this repository and workflow, then remove `NPM_TOKEN`.
+
+The workflow checks both registries before publishing, refuses to overwrite an
+existing version, verifies the published version and dist-tag after publication,
+and fails if either registry does not confirm the release. A dry run never
+publishes.
 
 ## Release history
 
-See [CHANGELOG.md](./CHANGELOG.md). `1.0.0` is the first stable release:
-charts, tables, metrics, dashboards, reports, export, printing and React
-integration are ready for production use. Future work is additive until the
-next major version.
+See [CHANGELOG.md](./CHANGELOG.md). `1.0.1` is a maintenance release with CSV
+formula injection protection and hardened npm/GitHub Packages publication
+verification. Charts, tables, metrics, dashboards, reports, export, printing and
+React integration remain backward compatible.
 
 ## License
 
